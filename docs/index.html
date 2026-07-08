@@ -106,13 +106,18 @@
 </div>
 
 <div class="jumpbar">
-  <a href="#detailedPanel">↓ Detailed ticker cards</a>
-  <a href="#performancePanel">↓ Performance overview</a>
+  <a href="#reboundPanel">↓ Rebound MA200</a>
+  <a href="#uptrendPanel">↓ Uptrend MA50</a>
+  <a href="#goldenPanel">↓ Golden cross</a>
+  <a href="#deathPanel">↓ Death cross</a>
+  <a href="#watchlistPanel">↓ Watchlist</a>
+  <a href="#detailedPanel">↓ Ticker cards</a>
+  <a href="#performancePanel">↓ Performance</a>
 </div>
 
 <div class="statgrid" id="stats"></div>
 
-<div class="panel">
+<div class="panel" id="reboundPanel">
   <h2>Rebound setups to MA200, R:R 1.5+ (2-3 weeks view)</h2>
   <div class="desc" id="reboundCaption">Stocks below MA200 with at least 1.5R reward for 1R risked. Stop = lowest low of last 12 bars (floored at 0.5x ATR14). Feasibility is a distance-vs-3-week-volatility heuristic, not a predicted probability - it does not account for trend direction.</div>
   <div style="overflow-x:auto">
@@ -123,7 +128,7 @@
   </div>
 </div>
 
-<div class="panel">
+<div class="panel" id="uptrendPanel">
   <h2>Uptrend continuation to MA50, R:R 1.5+ (2-3 weeks view)</h2>
   <div class="desc" id="reboundMA50Caption">Stocks that have reclaimed MA200 (price above it) with MA20 above MA50 (stacked averages, confirms trend rather than a single-day poke above MA200), still below MA50, and at least 1.5R reward for 1R risked to reach it. Same stop/feasibility methodology as the MA200 table.</div>
   <div style="overflow-x:auto">
@@ -134,7 +139,29 @@
   </div>
 </div>
 
-<div class="panel">
+<div class="panel" id="goldenPanel">
+  <h2>Golden cross zone (MA50 &times; MA200)</h2>
+  <div class="desc" id="goldenCaption">Stocks whose MA50 crossed above MA200 within the last 20 sessions (bullish regime change), or where MA50 is still below MA200 but within 2% and converging over the last 5 sessions (approaching). A cross is a lagging confirmation, not an entry signal on its own.</div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr id="goldenTheadRow"></tr></thead>
+      <tbody id="goldenBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel" id="deathPanel">
+  <h2>Death cross zone (MA50 &times; MA200)</h2>
+  <div class="desc" id="deathCaption">Stocks whose MA50 crossed below MA200 within the last 20 sessions (bearish regime change), or where MA50 is still above MA200 but within 2% and converging over the last 5 sessions (approaching). Same lagging-indicator caveat applies.</div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr id="deathTheadRow"></tr></thead>
+      <tbody id="deathBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel" id="watchlistPanel">
   <h2>Watchlist</h2>
   <div class="desc">Hide a ticker with the &times; on its card. To track a NEW ticker or restore a hidden one, edit <b>tickers.txt</b> or re-run the workflow in the GitHub repo.</div>
   <div class="cards" id="cards"></div>
@@ -161,6 +188,17 @@
   <a href="#top" class="jumpbar-inline">↑ Back to top</a>
 </div>
 
+<div class="jumpbar" style="margin:14px 0 20px">
+  <a href="#top">↑ Top</a>
+  <a href="#reboundPanel">Rebound MA200</a>
+  <a href="#uptrendPanel">Uptrend MA50</a>
+  <a href="#goldenPanel">Golden cross</a>
+  <a href="#deathPanel">Death cross</a>
+  <a href="#watchlistPanel">Watchlist</a>
+  <a href="#detailedPanel">Ticker cards</a>
+  <a href="#performancePanel">Performance</a>
+</div>
+
 <script>
 'use strict';
 const LS_HIDDEN = 'basket-hidden-tickers-v1';
@@ -175,6 +213,8 @@ let asofStr = null;
 let sortCol = 'sig', sortDir = -1;
 let reboundSortCol = 'rr', reboundSortDir = -1;
 let reboundMA50SortCol = 'rr', reboundMA50SortDir = -1;
+let goldenSortCol = 'ord', goldenSortDir = 1;
+let deathSortCol = 'ord', deathSortDir = 1;
 
 function loadHidden() {
   try { const a = JSON.parse(localStorage.getItem(LS_HIDDEN) || '[]'); return new Set(Array.isArray(a) ? a : []); }
@@ -189,6 +229,44 @@ function visibleTickers() {
 }
 
 function pct(a, b) { return b ? (a - b) / b * 100 : null; }
+
+// --- Golden/death cross detection (MA50 vs MA200) ---
+const CROSS_LOOKBACK = 20;      // sessions back to count a cross as "recent"
+const CROSS_APPROACH_GAP = 2;   // max |gap| % between MAs to count as approaching
+const CROSS_CONVERGE_BARS = 5;  // gap must be narrower than it was this many sessions ago
+
+function computeCrossStatus(rawBars) {
+  // Needs 200 bars for the oldest MA200 in the window plus the lookback span.
+  if (!rawBars || rawBars.length < 200 + CROSS_LOOKBACK + 1) return null;
+  const closes = rawBars.map(b => b[4]);
+  const n = closes.length;
+  function smaAt(i, len) {
+    let s = 0;
+    for (let k = i - len + 1; k <= i; k++) s += closes[k];
+    return s / len;
+  }
+  // diff series over the last CROSS_LOOKBACK+1 sessions, oldest -> newest
+  const diffs = [];
+  for (let i = n - 1 - CROSS_LOOKBACK; i <= n - 1; i++) diffs.push(smaAt(i, 50) - smaAt(i, 200));
+  const last = diffs.length - 1;
+  const ma50 = smaAt(n - 1, 50), ma200 = smaAt(n - 1, 200);
+  const gapPct = (ma50 - ma200) / ma200 * 100;
+
+  // Most recent sign flip within the window = the cross event
+  for (let j = last; j >= 1; j--) {
+    if (diffs[j] * diffs[j - 1] < 0) {
+      return { type: diffs[last] > 0 ? 'golden' : 'death', status: 'crossed',
+               barsAgo: last - j, ma50, ma200, gapPct };
+    }
+  }
+  // No cross in window: approaching if the gap is small and shrinking
+  if (Math.abs(gapPct) <= CROSS_APPROACH_GAP &&
+      Math.abs(diffs[last]) < Math.abs(diffs[last - CROSS_CONVERGE_BARS])) {
+    return { type: diffs[last] < 0 ? 'golden' : 'death', status: 'approaching',
+             barsAgo: null, ma50, ma200, gapPct };
+  }
+  return null;
+}
 
 function computeMetrics(rawBars) {
   const bars = rawBars.map(b => ({ time: b[0], open: b[1], high: b[2], low: b[3], close: b[4], volume: b[5] }));
@@ -500,6 +578,8 @@ function render() {
   renderTable(spy, tickers);
   renderRebound(stocks);
   renderReboundMA50(stocks);
+  renderGoldenCross(stocks);
+  renderDeathCross(stocks);
 }
 function scoreBadge(score) {
   if (score == null) return '<span style="color:#6b7280">—</span>';
@@ -948,6 +1028,75 @@ function setReboundMA50Sort(col) {
   if (reboundMA50SortCol === col) reboundMA50SortDir = -reboundMA50SortDir; else { reboundMA50SortCol = col; reboundMA50SortDir = col === 'sym' ? 1 : -1; }
   render();
 }
+
+const CROSS_COLS = [['sym','Ticker'],['price','Price'],['ma50','MA50'],['ma200','MA200'],['gap','Gap %'],['ord','Status']];
+
+function renderCrossTable(stocks, kind, theadId, bodyId, captionId, sortCol, sortDir, setterName) {
+  const el = document.getElementById(bodyId);
+  if (!el) return;
+  const theadEl = document.getElementById(theadId);
+  if (theadEl) {
+    theadEl.innerHTML = CROSS_COLS.map(c =>
+      '<th onclick="' + setterName + '(\'' + c[0] + '\')">' + c[1] +
+      (sortCol === c[0] ? ' <span class="arrow">' + (sortDir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>'
+    ).join('');
+  }
+
+  const inZone = stocks.filter(t => data[t] && data[t].cross && data[t].cross.type === kind);
+  const noHistory = stocks.filter(t => data[t] && !data[t].error && data[t].cross === null).length;
+
+  const rows = inZone.map(t => {
+    const d = data[t], c = d.cross;
+    // ord: confirmed crosses sort by recency (0 = today), approaching sort after them by gap size
+    return { sym: t, price: d.price, ma50: c.ma50, ma200: c.ma200, gap: c.gapPct,
+             ord: c.status === 'crossed' ? c.barsAgo : 100 + Math.abs(c.gapPct), _c: c };
+  });
+  rows.sort((a, b) => {
+    const x = a[sortCol], y = b[sortCol];
+    if (sortCol === 'sym') return sortDir * String(x).localeCompare(String(y));
+    return sortDir * ((x == null ? -Infinity : x) - (y == null ? -Infinity : y));
+  });
+
+  const caption = document.getElementById(captionId);
+  const label = kind === 'golden' ? 'golden' : 'death';
+  if (caption) {
+    const crossed = rows.filter(r => r._c.status === 'crossed').length;
+    const approaching = rows.length - crossed;
+    caption.textContent = rows.length + ' of ' + stocks.length + ' stocks in the ' + label + ' cross zone: ' +
+      crossed + ' crossed within the last ' + CROSS_LOOKBACK + ' sessions, ' + approaching +
+      ' approaching (MA gap within ' + CROSS_APPROACH_GAP + '% and converging over ' + CROSS_CONVERGE_BARS + ' sessions).' +
+      (noHistory ? ' ' + noHistory + ' skipped (fewer than ' + (200 + CROSS_LOOKBACK + 1) + ' bars of history).' : '') +
+      ' A cross is a lagging confirmation, not an entry signal on its own.';
+  }
+
+  el.innerHTML = rows.length ? rows.map(row => {
+    const c = row._c;
+    const statusHtml = c.status === 'crossed'
+      ? '<span style="font-weight:600;color:' + (kind === 'golden' ? '#166534' : '#991b1b') + '">CROSSED ' + (c.barsAgo === 0 ? 'today' : c.barsAgo + 'd ago') + '</span>'
+      : '<span style="color:#92400e">APPROACHING</span>';
+    return '<tr><td><a class="tklink" href="' + rallyLink(row.sym) + '" target="_blank" rel="noopener noreferrer">' + row.sym + '</a></td>' +
+      '<td>' + fmtPrice(row.price) + '</td>' +
+      '<td>' + fmtPrice(row.ma50) + '</td>' +
+      '<td>' + fmtPrice(row.ma200) + '</td>' +
+      '<td>' + pctHtml(row.gap, {arrow:false, sign:true, dp:2}) + '</td>' +
+      '<td>' + statusHtml + '</td></tr>';
+  }).join('') : '<tr><td colspan="6" class="empty">No stocks currently in the ' + label + ' cross zone (no MA50/MA200 cross in the last ' + CROSS_LOOKBACK + ' sessions, none approaching within ' + CROSS_APPROACH_GAP + '%).</td></tr>';
+}
+
+function renderGoldenCross(stocks) {
+  renderCrossTable(stocks, 'golden', 'goldenTheadRow', 'goldenBody', 'goldenCaption', goldenSortCol, goldenSortDir, 'setGoldenSort');
+}
+function renderDeathCross(stocks) {
+  renderCrossTable(stocks, 'death', 'deathTheadRow', 'deathBody', 'deathCaption', deathSortCol, deathSortDir, 'setDeathSort');
+}
+function setGoldenSort(col) {
+  if (goldenSortCol === col) goldenSortDir = -goldenSortDir; else { goldenSortCol = col; goldenSortDir = col === 'sym' ? 1 : (col === 'ord' ? 1 : -1); }
+  render();
+}
+function setDeathSort(col) {
+  if (deathSortCol === col) deathSortDir = -deathSortDir; else { deathSortCol = col; deathSortDir = col === 'sym' ? 1 : (col === 'ord' ? 1 : -1); }
+  render();
+}
 function setSort(col) {
   if (sortCol === col) sortDir = -sortDir; else { sortCol = col; sortDir = col === 'sym' ? 1 : -1; }
   render();
@@ -972,6 +1121,7 @@ async function loadData() {
         data[sym] = { error: entry.error || 'no bars' };
       } else {
         data[sym] = computeMetrics(entry.bars);
+        data[sym].cross = computeCrossStatus(entry.bars);
       }
       fund[sym] = { name: entry.name, sector: entry.sector, industry: entry.industry, mcap: entry.mcap, beta: entry.beta,
                     targetMean: entry.targetMean, targetHigh: entry.targetHigh, targetLow: entry.targetLow, numAnalysts: entry.numAnalysts };
