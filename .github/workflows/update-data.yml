@@ -1,0 +1,112 @@
+name: Update market data
+
+on:
+  schedule:
+    # --- Intraday: premarket 8:00am ET (1.5h before open) through 1:30pm ET
+    # (4h after open), every 10 min, one continuous block (34 runs/day) ---
+    - cron: "0,10,20,30,40,50 8,9,10,11,12 * * 1-5"
+      timezone: "America/New_York"
+    - cron: "0,10,20,30 13 * * 1-5"
+      timezone: "America/New_York"
+    # --- EOD: single run at 4:30pm ET, after close settles ---
+    - cron: "30 16 * * 1-5"
+      timezone: "America/New_York"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Fetch mode for externally-dispatched runs (the Cloudflare dispatcher passes this explicitly, since github.event.schedule is always empty on workflow_dispatch)"
+        required: false
+        default: "eod"
+        type: choice
+        options:
+          - eod
+          - intraday
+  push:
+    paths:
+      - "tickers.txt"
+
+permissions:
+  contents: write
+  actions: write   # needed to dispatch pages.yml after a successful data commit
+
+concurrency:
+  group: update-market-data
+  cancel-in-progress: false   # if a run is still going when the next trigger fires, the
+                              # new one waits instead of racing it to git push. Only one
+                              # run can be pending at a time (GitHub default) - if a third
+                              # trigger fires before the first two finish, the older pending
+                              # run is dropped and replaced by the newest. That's fine here:
+                              # skipping a stale 10-min-old fetch to catch up to "now" is the
+                              # right behavior, not a bug.
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8   # kill hung runs well before the next 10-min trigger fires
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install yfinance pandas
+      - name: Determine fetch mode
+        id: mode
+        run: |
+          if [ -n "${{ github.event.inputs.mode }}" ]; then
+            # Externally dispatched (Cloudflare cron dispatcher, or a manual
+            # UI run) - trust the explicit input rather than guessing from
+            # github.event.schedule, which is always empty on workflow_dispatch.
+            echo "mode=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "30 16 * * 1-5" ]; then
+            echo "mode=eod" >> "$GITHUB_OUTPUT"
+          elif [ -z "${{ github.event.schedule }}" ]; then
+            echo "mode=eod" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=intraday" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Fetch market data
+        env:
+          FETCH_MODE: ${{ steps.mode.outputs.mode }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python scripts/fetch_data.py
+      - name: Commit updated data
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data.json docs/alert_state.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Update market data [skip ci]"
+            # main can move between this job's checkout and this push (another
+            # trigger, a manual edit, anything) - the concurrency group above
+            # only serializes this workflow against itself, it does not protect
+            # against that. Retry with rebase instead of failing outright.
+            pushed=false
+            for i in 1 2 3 4 5; do
+              if git pull --rebase origin main && git push; then
+                pushed=true
+                break
+              fi
+              echo "Push attempt $i failed (remote moved), retrying..."
+              sleep 3
+            done
+            if [ "$pushed" = false ]; then
+              echo "::error::Failed to push after 5 attempts - remote kept moving or rebase conflicted"
+              exit 1
+            fi
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Trigger Pages deploy
+        # GITHUB_TOKEN-authenticated pushes don't fire other workflows' `push`
+        # triggers (GitHub's anti-recursion rule) - workflow_dispatch is exempt
+        # from that rule, so we dispatch pages.yml explicitly instead of relying
+        # on it noticing the push. Only fires when data.json actually changed,
+        # not on every 10-min tick that found nothing new.
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run pages.yml
