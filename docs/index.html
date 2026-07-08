@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basket Command Center</title>
+<style>
+  :root { color-scheme: light; }
+  html { scroll-behavior: smooth; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f4f5f7; color: #16181d; padding: 20px; font-size: 14px;
+    max-width: 1500px; margin: 0 auto;
+  }
+  .eyebrow { font-size: 12px; color: #6b7280; letter-spacing: .02em; }
+  h1 { font-size: 26px; font-weight: 700; margin: 2px 0 4px; }
+  .sub { color: #6b7280; font-size: 13px; margin-bottom: 6px; }
+  .header-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .bench-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .jumpbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
+  .jumpbar a { background: #fff; border: 1px solid #e5e7eb; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: #16181d; text-decoration: none; }
+  .jumpbar a:hover { background: #f3f4f6; }
+  .jumpbar-inline { display: inline-block; margin-top: 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: #16181d; text-decoration: none; }
+  .jumpbar-inline:hover { background: #f3f4f6; }
+  .chip { background: #fff; border: 1px solid #e5e7eb; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .up { color: #0a9e5c; } .down { color: #e5484d; } .flat { color: #6b7280; }
+  .statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+  .stat { background: #fff; border: 1px solid #e9eaee; border-radius: 14px; padding: 14px 16px; }
+  .stat .label { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
+  .stat .big { font-size: 20px; font-weight: 700; }
+  .stat .small { font-size: 12px; color: #6b7280; margin-top: 4px; }
+  .panel { background: #fff; border: 1px solid #e9eaee; border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+  .panel h2 { font-size: 17px; margin-bottom: 2px; }
+  .panel .desc { font-size: 12px; color: #6b7280; margin-bottom: 12px; }
+  .addbar { display: flex; gap: 8px; margin: 10px 0 14px; flex-wrap: wrap; }
+  .addbar input { flex: 1; min-width: 160px; max-width: 260px; padding: 8px 12px; border: 1px solid #d6d9de; border-radius: 10px; font-size: 13px; text-transform: uppercase; }
+  .addbar input:focus { outline: 2px solid #4c7dfc33; border-color: #4c7dfc; }
+  button { padding: 8px 14px; border: 1px solid #d6d9de; background: #fff; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #f3f4f6; }
+  button.primary { background: #16181d; color: #fff; border-color: #16181d; }
+  button.primary:hover { background: #33363d; }
+  .notice { font-size: 12px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 8px 12px; margin: 0 0 12px; display: none; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 10px; }
+  .card { background: #fff; border: 1px solid #e9eaee; border-radius: 12px; padding: 12px; position: relative; }
+  .card.benchmark { background: #f0f1f4; }
+  .card .tick { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  .card .etf { font-size: 9px; background: #e5e7eb; border-radius: 4px; padding: 1px 5px; color: #4b5563; font-weight: 700; }
+  .card .price { font-size: 13px; color: #374151; margin-top: 6px; }
+  .card .chg { font-weight: 700; font-size: 13px; }
+  .card .vs { font-size: 11px; color: #6b7280; margin-top: 6px; display: flex; justify-content: space-between; }
+  .card .rm, .dcard .rm { position: absolute; top: 6px; right: 6px; border: none; background: none; color: #9ca3af; font-size: 14px; line-height: 1; padding: 3px 5px; border-radius: 6px; cursor: pointer; }
+  .card .rm:hover, .dcard .rm:hover { background: #fee2e2; color: #dc2626; }
+  .card .errmsg, .errmsg { font-size: 11px; color: #dc2626; margin-top: 6px; }
+  .dcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .dcard { background: #fff; border: 1px solid #e9eaee; border-radius: 14px; padding: 14px; position: relative; }
+  .dcard-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; padding-right: 16px; }
+  .dcard-head .logo { width: 30px; height: 30px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 30px; }
+  .dcard-head .idblock { flex: 1; min-width: 0; }
+  .dcard-head .tk { font-weight: 700; font-size: 15px; }
+  .dcard-head .ind { font-size: 11px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dcard-head .pxblock { text-align: right; }
+  .dcard-head .px { font-weight: 700; font-size: 15px; }
+  .dcard-head .dchg { font-size: 12px; font-weight: 600; }
+  .spark { width: 100%; height: 56px; margin: 8px 0 10px; display: block; }
+  .chips3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .rchip { border: 1px solid #e9eaee; border-radius: 9px; padding: 6px 8px; }
+  .rchip .rlab { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; }
+  .rchip .rlab .per { color: #6b7280; }
+  .rchip .rbar { height: 4px; background: #f0f1f4; border-radius: 3px; margin-top: 5px; overflow: hidden; }
+  .rchip .rbar i { display: block; height: 100%; border-radius: 3px; }
+  .range-row { display: flex; justify-content: space-between; font-size: 11px; color: #6b7280; margin-bottom: 3px; }
+  .range-row b { color: #16181d; font-weight: 600; }
+  .range-track { height: 5px; background: #f0f1f4; border-radius: 3px; position: relative; margin-bottom: 12px; }
+  .range-track i { position: absolute; top: -2px; width: 9px; height: 9px; border-radius: 50%; background: #16181d; border: 2px solid #fff; box-shadow: 0 0 0 1px #d6d9de; }
+  .dstats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; border-top: 1px solid #f3f4f6; padding-top: 10px; }
+  .dstats .k { font-size: 11px; color: #6b7280; }
+  .dstats .v { font-size: 12.5px; font-weight: 600; }
+  .dcard-sector { border-top: 1px solid #f3f4f6; margin-top: 10px; padding-top: 8px; font-size: 11px; color: #6b7280; }
+  .dcard-sector b { display: block; color: #16181d; font-size: 12.5px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: right; font-weight: 600; color: #6b7280; font-size: 12px; padding: 8px 10px; border-bottom: 1px solid #e9eaee; cursor: pointer; user-select: none; white-space: nowrap; }
+  th:first-child { text-align: left; }
+  th:hover { color: #16181d; }
+  th .arrow { font-size: 10px; }
+  td { text-align: right; padding: 9px 10px; border-bottom: 1px solid #f3f4f6; white-space: nowrap; }
+  td:first-child { text-align: left; font-weight: 700; }
+  .bench-badge { font-size: 10px; background: #e5e7eb; color: #4b5563; border-radius: 5px; padding: 1px 6px; margin-left: 6px; font-weight: 600; }
+  .empty { text-align: center; padding: 40px 16px; color: #6b7280; font-size: 13px; }
+  .nowrap-pill { white-space: nowrap; display: inline-block; margin: 0 10px 4px 0; font-size: 13px; }
+  .mover-pill { white-space: nowrap; display: inline-block; margin: 0 10px 4px 0; font-size: 14px; }
+  .tklink { color: inherit; text-decoration: none; }
+  .tklink:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div id="top"></div>
+<div class="header-row">
+  <div>
+    <div class="eyebrow">Tech, AI, cybersecurity, software, and ETF monitor</div>
+    <h1>Basket command center</h1>
+    <div class="sub" id="subtitle">End-of-day quotes, performance, and benchmark comparison.</div>
+  </div>
+  <div class="bench-chips" id="benchChips"></div>
+</div>
+
+<div class="jumpbar">
+  <a href="#detailedPanel">↓ Detailed ticker cards</a>
+  <a href="#performancePanel">↓ Performance overview</a>
+</div>
+
+<div class="statgrid" id="stats"></div>
+
+<div class="panel">
+  <h2>Rebound setups to MA200, R:R 1.5+ (2-3 weeks view)</h2>
+  <div class="desc" id="reboundCaption">Stocks below MA200 with at least 1.5R reward for 1R risked. Stop = lowest low of last 12 bars (floored at 0.5x ATR14). Feasibility is a distance-vs-3-week-volatility heuristic, not a predicted probability - it does not account for trend direction.</div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr id="reboundTheadRow"></tr></thead>
+      <tbody id="reboundBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Uptrend continuation to MA50, R:R 1.5+ (2-3 weeks view)</h2>
+  <div class="desc" id="reboundMA50Caption">Stocks that have reclaimed MA200 (price above it) with MA20 above MA50 (stacked averages, confirms trend rather than a single-day poke above MA200), still below MA50, and at least 1.5R reward for 1R risked to reach it. Same stop/feasibility methodology as the MA200 table.</div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr id="reboundMA50TheadRow"></tr></thead>
+      <tbody id="reboundMA50Body"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Watchlist</h2>
+  <div class="desc">Hide a ticker with the &times; on its card. To track a NEW ticker or restore a hidden one, edit <b>tickers.txt</b> or re-run the workflow in the GitHub repo.</div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<div class="panel" id="detailedPanel">
+  <h2>Detailed ticker cards</h2>
+  <div class="desc">Last close, 3-month daily trend line, 1M/3M/1Y returns, 52-week range position, market cap, beta, volume vs 20-day average, sector, and industry.</div>
+  <div class="dcards" id="dcards"></div>
+</div>
+
+<div class="panel" id="performancePanel">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <h2>Performance overview</h2>
+    <a href="#top" class="jumpbar-inline" style="margin-top:0">↑ Back to top</a>
+  </div>
+  <div class="desc">Daily, WTD, MTD, YTD, and 1-year returns from daily closes. Click a column to sort.</div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr id="theadRow"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <a href="#top" class="jumpbar-inline">↑ Back to top</a>
+</div>
+
+<script>
+'use strict';
+const LS_HIDDEN = 'basket-hidden-tickers-v1';
+const BENCHMARKS = new Set(["SPY","QQQ","IWM"]);
+const PINNED = new Set(["SPY"]);
+
+let allTickers = [];   // from data.json, in file order
+let hidden = loadHidden();
+const data = {};       // sym -> metrics or {error}
+const fund = {};       // sym -> {mcap, beta, sector, industry, name}
+let asofStr = null;
+let sortCol = 'sig', sortDir = -1;
+let reboundSortCol = 'rr', reboundSortDir = -1;
+let reboundMA50SortCol = 'rr', reboundMA50SortDir = -1;
+
+function loadHidden() {
+  try { const a = JSON.parse(localStorage.getItem(LS_HIDDEN) || '[]'); return new Set(Array.isArray(a) ? a : []); }
+  catch (e) { return new Set(); }
+}
+function saveHidden() { try { localStorage.setItem(LS_HIDDEN, JSON.stringify([...hidden])); } catch (e) {} }
+function visibleTickers() {
+  const vis = allTickers.filter(t => !hidden.has(t));
+  const benches = vis.filter(t => BENCHMARKS.has(t)).sort();
+  const stocks = vis.filter(t => !BENCHMARKS.has(t)).sort();
+  return benches.concat(stocks);
+}
+
+function pct(a, b) { return b ? (a - b) / b * 100 : null; }
+
+function computeMetrics(rawBars) {
+  const bars = rawBars.map(b => ({ time: b[0], open: b[1], high: b[2], low: b[3], close: b[4], volume: b[5] }));
+  const last = bars[bars.length - 1];
+  const prev = bars[bars.length - 2];
+  const lastDate = new Date(last.time * 1000);
+  function refCloseBefore(pred) {
+    for (let i = bars.length - 1; i >= 0; i--) {
+      const d = new Date(bars[i].time * 1000);
+      if (pred(d)) return bars[i].close;
+    }
+    return null;
+  }
+  const wk = new Date(lastDate); const day = (wk.getDay() + 6) % 7; wk.setDate(wk.getDate() - day); wk.setHours(0,0,0,0);
+  const mo = new Date(lastDate.getFullYear(), lastDate.getMonth(), 1);
+  const yr = new Date(lastDate.getFullYear(), 0, 1);
+  const oneYearAgo = new Date(lastDate); oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const oneMonthAgo = new Date(lastDate); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+  const threeMonthsAgo = new Date(lastDate); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  const wtdRef = refCloseBefore(d => d < wk);
+  const mtdRef = refCloseBefore(d => d < mo);
+  const ytdRef = refCloseBefore(d => d < yr);
+  const y1Ref  = refCloseBefore(d => d <= oneYearAgo);
+  const m1Ref  = refCloseBefore(d => d <= oneMonthAgo);
+  const m3Ref  = refCloseBefore(d => d <= threeMonthsAgo);
+  let hi52 = -Infinity, lo52 = Infinity;
+  for (const b of bars) {
+    if (new Date(b.time * 1000) >= oneYearAgo) {
+      if (b.high > hi52) hi52 = b.high;
+      if (b.low < lo52) lo52 = b.low;
+    }
+  }
+  if (!isFinite(hi52)) { hi52 = null; lo52 = null; }
+  const v20 = bars.slice(-20);
+  const avgVol = v20.reduce((s, b) => s + (b.volume || 0), 0) / v20.length;
+
+  // RSI 14
+  function rsi14(closes) {
+    if (closes.length < 15) return null;
+    let gains = 0, losses = 0;
+    for (let i = 1; i <= 14; i++) {
+      const ch = closes[closes.length - i] - closes[closes.length - i - 1];
+      if (ch > 0) gains += ch; else losses -= ch;
+    }
+    const avgGain = gains / 14, avgLoss = losses / 14;
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+  }
+  const closes = bars.map(b => b.close);
+  const rsi = rsi14(closes);
+
+  // Moving averages
+  function sma(n) {
+    if (closes.length < n) return null;
+    const slice = closes.slice(-n);
+    return slice.reduce((a, b) => a + b, 0) / n;
+  }
+  const ma20 = sma(20);
+  const ma50 = sma(50);
+  const ma200 = sma(200);
+
+  // ATR 14
+  function atr14() {
+    if (bars.length < 15) return null;
+    let sum = 0;
+    for (let i = bars.length - 14; i < bars.length; i++) {
+      const tr = Math.max(bars[i].high - bars[i].low, Math.abs(bars[i].high - bars[i-1].close), Math.abs(bars[i].low - bars[i-1].close));
+      sum += tr;
+    }
+    return sum / 14;
+  }
+  const atr = atr14();
+  // ATR 5 days ago for trend
+  let atrPrev = null;
+  if (bars.length >= 19) {
+    let sum = 0;
+    for (let i = bars.length - 19; i < bars.length - 5; i++) {
+      const tr = Math.max(bars[i].high - bars[i].low, Math.abs(bars[i].high - bars[i-1].close), Math.abs(bars[i].low - bars[i-1].close));
+      sum += tr;
+    }
+    atrPrev = sum / 14;
+  }
+
+  // Volume trends
+  const v5 = bars.slice(-5);
+  const v10 = bars.slice(-10);
+  const avgVol5 = v5.reduce((s, b) => s + (b.volume || 0), 0) / v5.length;
+  const avgVol10 = v10.reduce((s, b) => s + (b.volume || 0), 0) / v10.length;
+
+  // Higher lows pattern (last 20 days)
+  let higherLows = 0;
+  let totalLows = 0;
+  const last20 = bars.slice(-20);
+  for (let i = 2; i < last20.length; i++) {
+    if (last20[i].low > last20[i-2].low) higherLows++;
+    totalLows++;
+  }
+
+  // RSI trajectory (5 days)
+  let rsiPrev = null;
+  if (bars.length >= 19) {
+    const prevCloses = closes.slice(0, -5);
+    rsiPrev = rsi14(prevCloses);
+  }
+
+  // Swing low over the last 12 bars (used as the stop reference for rebound R:R)
+  const SWING_LOOKBACK = 12;
+  const swingBars = bars.slice(-SWING_LOOKBACK);
+  const swingLow = swingBars.length ? Math.min(...swingBars.map(b => b.low)) : null;
+
+  return {
+    price: last.close,
+    daily: pct(last.close, prev.close),
+    wtd: wtdRef != null ? pct(last.close, wtdRef) : null,
+    mtd: mtdRef != null ? pct(last.close, mtdRef) : null,
+    ytd: ytdRef != null ? pct(last.close, ytdRef) : null,
+    y1:  y1Ref  != null ? pct(last.close, y1Ref)  : null,
+    m1:  m1Ref  != null ? pct(last.close, m1Ref)  : null,
+    m3:  m3Ref  != null ? pct(last.close, m3Ref)  : null,
+    vol: last.volume, avgVol: avgVol,
+    avgVol5: avgVol5, avgVol10: avgVol10,
+    hi52: hi52, lo52: lo52,
+    offHigh: hi52 ? pct(last.close, hi52) : null,
+    spark: bars.slice(-63).map(b => b.close),
+    asOf: lastDate,
+    // New fields for scoring
+    rsi: rsi,
+    ma20: ma20,
+    ma50: ma50,
+    ma200: ma200,
+    atr: atr,
+    atrPrev: atrPrev,
+    higherLows: totalLows > 0 ? higherLows / totalLows : null,
+    rsiPrev: rsiPrev,
+    closes: closes,
+    swingLow: swingLow
+  };
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function rallyLink(t) {
+  return 'https://rallies.ai/research/' + encodeURIComponent(t);
+}
+function pctHtml(v, opts) {
+  opts = opts || {};
+  if (v == null || isNaN(v)) return '<span class="flat">—</span>';
+  const cls = v > 0.005 ? 'up' : v < -0.005 ? 'down' : 'flat';
+  const arrow = opts.arrow === false ? '' : (v > 0.005 ? '↑ ' : v < -0.005 ? '↓ ' : '');
+  const sign = opts.sign && v > 0 ? '+' : '';
+  return '<span class="' + cls + '">' + arrow + sign + v.toFixed(opts.dp == null ? 1 : opts.dp) + '%</span>';
+}
+function fmtVol(v) {
+  if (v == null) return '—';
+  if (v >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+  if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return (v / 1e3).toFixed(0) + 'K';
+  return String(v);
+}
+function fmtPrice(p) { return p == null ? '—' : '$' + p.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+function fmtMcap(v) {
+  if (v == null || !isFinite(v)) return '—';
+  if (v >= 1e12) return '$' + (v / 1e12).toFixed(2) + 'T';
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+  return '$' + Math.round(v).toLocaleString();
+}
+function targetHtml(t, f, price) {
+  if (!f || f.targetMean == null || price == null) return '<span style="color:#6b7280">—</span>';
+  const upside = pct(f.targetMean, price);
+  const n = f.numAnalysts != null ? f.numAnalysts + ' analyst' + (f.numAnalysts === 1 ? '' : 's') : 'analyst count unknown';
+  const yUrl = 'https://finance.yahoo.com/quote/' + encodeURIComponent(t) + '/analyst-insights/';
+  return '<span title="' + n + '"><a class="tklink" href="' + yUrl + '" target="_blank" rel="noopener noreferrer">' + fmtPrice(f.targetMean) + '</a> ' + pctHtml(upside, {sign:true, arrow:false, dp:1}) + '</span>';
+}
+const LOGO_COLORS = ['#1f2937','#4c7dfc','#0a9e5c','#d97706','#7c3aed','#db2777','#0891b2','#e5484d'];
+function logoColor(t) { let h = 0; for (const c of t) h = (h * 31 + c.charCodeAt(0)) >>> 0; return LOGO_COLORS[h % LOGO_COLORS.length]; }
+
+function statCard(label, big, small) {
+  return '<div class="stat"><div class="label">' + label + '</div><div class="big">' + big + '</div><div class="small">' + small + '</div></div>';
+}
+function statCardPair(a, b) {
+  return '<div style="display:flex;flex-direction:column;gap:10px">' + a + b + '</div>';
+}
+function statCardTrio(a, b, c) {
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + a + b +
+    '<div style="grid-column:1 / -1">' + c + '</div></div>';
+}
+
+function sparkSvg(closes) {
+  if (!closes || closes.length < 2) return '';
+  const w = 240, h = 56, pad = 3;
+  const min = Math.min(...closes), max = Math.max(...closes), span = (max - min) || 1;
+  const pts = closes.map((c, i) =>
+    (pad + i * (w - 2 * pad) / (closes.length - 1)).toFixed(1) + ',' +
+    (h - pad - (c - min) / span * (h - 2 * pad)).toFixed(1)
+  ).join(' ');
+  const up = closes[closes.length - 1] >= closes[0];
+  const color = up ? '#0a9e5c' : '#e5484d';
+  return '<svg class="spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+    '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+}
+
+function retChip(label, v, maxAbs) {
+  const barColor = v == null || Math.abs(v) <= 0.005 ? '#d6d9de' : v > 0 ? '#0a9e5c' : '#e5484d';
+  const width = v == null ? 0 : Math.max(6, Math.min(100, Math.abs(v) / maxAbs * 100));
+  return '<div class="rchip"><div class="rlab"><span class="per">' + label + '</span>' + pctHtml(v, {dp:2}) + '</div>' +
+    '<div class="rbar"><i style="width:' + width.toFixed(0) + '%;background:' + barColor + '"></i></div></div>';
+}
+
+function render() {
+  const tickers = visibleTickers();
+  const spy = data['SPY'] && !data['SPY'].error ? data['SPY'] : null;
+  const loaded = tickers.filter(t => data[t] && !data[t].error);
+  const stocks = loaded.filter(t => !BENCHMARKS.has(t));
+
+  let asOf = null;
+  for (const t of loaded) if (data[t].asOf && (!asOf || data[t].asOf > asOf)) asOf = data[t].asOf;
+  document.getElementById('subtitle').textContent =
+    'End-of-day coverage across ' + tickers.length + ' tickers.' +
+    (asOf ? ' Prices as of ' + asOf.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'}) + ' close.' : '') +
+    (asofStr ? ' Data refreshed ' + new Date(asofStr).toLocaleString() + '.' : ' Data refreshed automatically.');
+
+  document.getElementById('benchChips').innerHTML = ['SPY','QQQ','IWM']
+    .filter(b => tickers.includes(b))
+    .map(b => {
+      const d = data[b];
+      const inner = d && !d.error ? fmtPrice(d.price) + ' ' + pctHtml(d.daily) : '<span class="flat">…</span>';
+      return '<span class="chip"><a class="tklink" href="' + rallyLink(b) + '" target="_blank" rel="noopener noreferrer">' + b + '</a> ' + inner + '</span>';
+    }).join('');
+
+  // Compute scores for all stocks
+  computeScores(stocks);
+  computeRebound(stocks);
+  computeReboundMA50(stocks);
+
+  let statsHtml = '';
+  if (stocks.length) {
+    const sorted = [...stocks].sort((a, b) => data[b].daily - data[a].daily);
+    const best = sorted[0], worst = sorted[sorted.length - 1];
+    const avg = stocks.reduce((s, t) => s + data[t].daily, 0) / stocks.length;
+    const movers = stocks.filter(t => Math.abs(data[t].daily) >= 3)
+      .sort((a, b) => Math.abs(data[b].daily) - Math.abs(data[a].daily));
+    const moverNames = movers.length
+      ? movers.map(t => '<span class="mover-pill"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b></a> ' + fmtPrice(data[t].price) + ' ' + pctHtml(data[t].daily, {arrow:false, sign:true, dp:1}) + '</span>').join(' ')
+      : 'None today (' + stocks.length + ' stocks tracked)';
+    // Weekly stats
+    const wkSorted = [...stocks].sort((a, b) => (data[b].wtd || -Infinity) - (data[a].wtd || -Infinity));
+    const wkBest = wkSorted[0], wkWorst = wkSorted[wkSorted.length - 1];
+    const wkAvg = stocks.reduce((s, t) => s + (data[t].wtd || 0), 0) / stocks.length;
+    const wkMovers = stocks.filter(t => data[t].wtd != null && Math.abs(data[t].wtd) >= 8)
+      .sort((a, b) => Math.abs(data[b].wtd) - Math.abs(data[a].wtd));
+    const wkMoverNames = wkMovers.length
+      ? wkMovers.map(t => '<span class="mover-pill"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b></a> ' + fmtPrice(data[t].price) + ' ' + pctHtml(data[t].wtd, {arrow:false, sign:true, dp:1}) + '</span>').join(' ')
+      : 'None this week (' + stocks.length + ' stocks)';
+
+    // Momentum leaders (top 3 by score, displayed alphabetically - score badge still shows rank)
+    const momLeaders = [...stocks].sort((a, b) => (data[b].momScore || 0) - (data[a].momScore || 0)).slice(0, 5);
+    const momHtml = [...momLeaders].sort((a, b) => a.localeCompare(b)).map(t => '<span class="nowrap-pill"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b></a> ' + scoreBadge(data[t].momScore) + '</span>').join('<br>');
+
+    // Persistence leaders (top 3 by score, displayed alphabetically)
+    const perLeaders = [...stocks].sort((a, b) => (data[b].perScore || 0) - (data[a].perScore || 0)).slice(0, 5);
+    const perHtml = [...perLeaders].sort((a, b) => a.localeCompare(b)).map(t => '<span class="nowrap-pill"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b></a> ' + scoreBadge(data[t].perScore) + '</span>').join('<br>');
+
+    // Best setups (combined signal, top 3 by rank, displayed alphabetically)
+    const setups = [...stocks].sort((a, b) => (data[b].combinedRank || 0) - (data[a].combinedRank || 0)).slice(0, 3);
+    const setupHtml = [...setups].sort((a, b) => a.localeCompare(b)).map(t => '<span class="nowrap-pill"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b></a> ' + signalBadge(data[t].signal) + '</span>').join(' ');
+
+    statsHtml =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
+      statCardTrio(
+        statCard('Best daily move', '<a class="tklink" href="' + rallyLink(best) + '" target="_blank" rel="noopener noreferrer"><b>' + best + '</b></a> ' + pctHtml(data[best].daily, {dp:2}), fmtPrice(data[best].price)),
+        statCard('Weakest daily move', '<a class="tklink" href="' + rallyLink(worst) + '" target="_blank" rel="noopener noreferrer"><b>' + worst + '</b></a> ' + pctHtml(data[worst].daily, {dp:2}), fmtPrice(data[worst].price)),
+        statCard('Basket daily return', pctHtml(avg, {dp:2}), spy ? 'vs SPY ' + pctHtml(avg - spy.daily, {sign:true, arrow:false, dp:2}) : '')
+      ) +
+      statCard('Daily Big Movers (±3%'+')', '<span class="big">' + movers.length + '</span>', moverNames) +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
+      statCardTrio(
+        statCard('Best weekly move', '<a class="tklink" href="' + rallyLink(wkBest) + '" target="_blank" rel="noopener noreferrer"><b>' + wkBest + '</b></a> ' + pctHtml(data[wkBest].wtd, {dp:2}), fmtPrice(data[wkBest].price)),
+        statCard('Weakest weekly move', '<a class="tklink" href="' + rallyLink(wkWorst) + '" target="_blank" rel="noopener noreferrer"><b>' + wkWorst + '</b></a> ' + pctHtml(data[wkWorst].wtd, {dp:2}), fmtPrice(data[wkWorst].price)),
+        statCard('Basket weekly return', pctHtml(wkAvg, {dp:2}), spy ? 'vs SPY ' + pctHtml(wkAvg - spy.wtd, {sign:true, arrow:false, dp:2}) : '')
+      ) +
+      statCard('Weekly Big Movers (±8%'+')', '<span class="big">' + wkMovers.length + '</span>', wkMoverNames) +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' +
+      statCard('Momentum leaders', '<span class="big">Top 5</span>', momHtml) +
+      statCard('Persistence leaders', '<span class="big">Top 5</span>', perHtml) +
+      statCard('Best setups (combined)', '<span class="big">Top 3</span>', setupHtml) +
+      '</div>';
+  }
+  document.getElementById('stats').innerHTML = statsHtml;
+
+  document.getElementById('cards').innerHTML = tickers.length ? tickers.map(t => {
+    const d = data[t];
+    const isB = BENCHMARKS.has(t);
+    const rm = PINNED.has(t) ? '' : '<button class="rm" title="Hide ' + t + '" onclick="hideTicker(\'' + t + '\')">×</button>';
+    let body;
+    if (!d) body = '<div class="price">no data</div>';
+    else if (d.error) body = '<div class="errmsg">' + esc(d.error).slice(0, 60) + '</div>';
+    else {
+      const vsSpy = spy && t !== 'SPY' ? d.daily - spy.daily : (t === 'SPY' ? 0 : null);
+      body = '<div class="price">' + fmtPrice(d.price) + ' <span class="chg">' + pctHtml(d.daily) + '</span></div>' +
+             '<div class="vs"><span>vs SPY</span>' + (vsSpy == null ? '—' : pctHtml(vsSpy, {sign:true, arrow:false})) + '</div>';
+    }
+    return '<div class="card' + (isB ? ' benchmark' : '') + '">' +
+      rm + '<div class="tick"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer">' + t + '</a>' + (isB ? ' <span class="etf">BENCH</span>' : '') + '</div>' + body + '</div>';
+  }).join('') : '<div class="empty">No data yet. Run the "Update market data" workflow in GitHub Actions once, then reload.</div>';
+
+  renderDetailed(spy, tickers);
+  renderTable(spy, tickers);
+  renderRebound(stocks);
+  renderReboundMA50(stocks);
+}
+function scoreBadge(score) {
+  if (score == null) return '<span style="color:#6b7280">—</span>';
+  let color = score >= 70 ? '#0a9e5c' : score >= 50 ? '#6b7280' : '#e5484d';
+  return '<span style="color:' + color + ';font-weight:700">' + Math.round(score) + '</span>';
+}
+
+function signalBadge(signal) {
+  const colors = {
+    'STRONG BUY': '#0a9e5c', 'BUY': '#22c55e', 'ACCUMULATE': '#3b82f6',
+    'HOLD': '#6b7280', 'CAUTION': '#f59e0b', 'WEAKENING': '#f97316',
+    'WATCH': '#8b5cf6', 'AVOID': '#9ca3af', 'SELL': '#e5484d'
+  };
+  const c = colors[signal] || '#6b7280';
+  return '<span style="color:' + c + ';font-weight:700;font-size:11px">' + (signal || '—') + '</span>';
+}
+
+function combinedSignal(mom, per) {
+  if (mom == null || per == null) return 'HOLD';
+  if (mom >= 70 && per >= 70) return 'STRONG BUY';
+  if (mom >= 70 && per >= 50) return 'BUY';
+  if (mom >= 70 && per < 50) return 'CAUTION';
+  if (mom >= 50 && per >= 70) return 'ACCUMULATE';
+  if (mom >= 50 && per >= 50) return 'HOLD';
+  if (mom >= 50 && per < 50) return 'WEAKENING';
+  if (mom < 50 && per >= 70) return 'WATCH';
+  if (mom < 50 && per >= 50) return 'AVOID';
+  return 'SELL';
+}
+
+function computeScores(stocks) {
+  if (!stocks.length) return;
+  const spy = data['SPY'] && !data['SPY'].error ? data['SPY'] : null;
+
+  // Collect values for ranking
+  const vals = {
+    ret20: [], vsSpy5: [], volSurge: [], rsi: [],
+    trendAlign: [], volTrend: [], volCompress: [], higherLows: [], rsiTraj: []
+  };
+
+  for (const t of stocks) {
+    const d = data[t];
+    if (!d || d.error) continue;
+
+    // 20D return
+    if (d.closes && d.closes.length >= 21) {
+      const r20 = (d.closes[d.closes.length - 1] - d.closes[d.closes.length - 21]) / d.closes[d.closes.length - 21] * 100;
+      vals.ret20.push({t: t, v: r20});
+    }
+
+    // vs SPY 5D
+    if (spy && spy.closes && spy.closes.length >= 6 && d.closes && d.closes.length >= 6) {
+      const sym5 = (d.closes[d.closes.length - 1] - d.closes[d.closes.length - 6]) / d.closes[d.closes.length - 6] * 100;
+      const spy5 = (spy.closes[spy.closes.length - 1] - spy.closes[spy.closes.length - 6]) / spy.closes[spy.closes.length - 6] * 100;
+      vals.vsSpy5.push({t: t, v: sym5 - spy5});
+    }
+
+    // Volume surge
+    if (d.vol && d.avgVol && d.avgVol > 0) {
+      vals.volSurge.push({t: t, v: d.vol / d.avgVol});
+    }
+
+    // RSI
+    if (d.rsi != null) vals.rsi.push({t: t, v: d.rsi});
+
+    // Trend alignment (price > 20MA > 50MA)
+    if (d.price && d.ma20 && d.ma50) {
+      const aligned = d.price > d.ma20 && d.ma20 > d.ma50 ? 1 : 0;
+      vals.trendAlign.push({t: t, v: aligned});
+    }
+
+    // Volume trend (5D avg > 10D avg > 20D avg)
+    if (d.avgVol5 && d.avgVol10 && d.avgVol && d.avgVol10 > 0 && d.avgVol > 0) {
+      const vt = d.avgVol5 > d.avgVol10 && d.avgVol10 > d.avgVol ? 1 : 0;
+      vals.volTrend.push({t: t, v: vt});
+    }
+
+    // Volatility compression (ATR falling while price rising)
+    if (d.atr != null && d.atrPrev != null && d.closes && d.closes.length >= 6) {
+      const priceRising = d.closes[d.closes.length - 1] > d.closes[d.closes.length - 6];
+      const atrFalling = d.atr < d.atrPrev;
+      vals.volCompress.push({t: t, v: (priceRising && atrFalling) ? 1 : 0});
+    }
+
+    // Higher lows
+    if (d.higherLows != null) vals.higherLows.push({t: t, v: d.higherLows});
+
+    // RSI trajectory
+    if (d.rsi != null && d.rsiPrev != null) {
+      vals.rsiTraj.push({t: t, v: d.rsi > d.rsiPrev ? 1 : 0});
+    }
+  }
+
+  // Rank helpers
+  function rankScore(items, t, higherIsBetter) {
+    const item = items.find(x => x.t === t);
+    if (!item) return 50; // neutral if missing
+    const sorted = [...items].sort((a, b) => higherIsBetter ? b.v - a.v : a.v - b.v);
+    const idx = sorted.findIndex(x => x.t === t);
+    return (1 - idx / (sorted.length - 1 || 1)) * 100;
+  }
+
+  function boundedScore(val, min, max) {
+    if (val == null) return 50;
+    return Math.max(0, Math.min(100, (val - min) / (max - min) * 100));
+  }
+
+  // Compute for each stock
+  for (const t of stocks) {
+    const d = data[t];
+    if (!d || d.error) { d.momScore = null; d.perScore = null; d.signal = 'HOLD'; continue; }
+
+    // Momentum Score (0-100)
+    const s1 = rankScore(vals.ret20, t, true);
+    const s2 = rankScore(vals.vsSpy5, t, true);
+    const s3 = boundedScore((d.vol / (d.avgVol || 1)), 0.5, 3);
+    const s4 = d.rsi != null ? (d.rsi >= 50 && d.rsi <= 70 ? 100 - Math.abs(d.rsi - 60) * 5 : 20) : 50;
+    const s5 = (d.price && d.ma20) ? (d.price > d.ma20 ? 100 : 0) : 50;
+    const s6 = (d.hi52 && d.lo52 && d.hi52 > d.lo52) ? boundedScore((d.price - d.lo52) / (d.hi52 - d.lo52) * 100, 0, 100) : 50;
+    const s7 = (fund[t] && fund[t].beta != null) ? (fund[t].beta < 1.2 ? 100 : 30) : 50;
+
+    d.momScore = s1 * 0.25 + s2 * 0.20 + s3 * 0.15 + s4 * 0.15 + s5 * 0.10 + s6 * 0.10 + s7 * 0.05;
+
+    // Persistence Score (0-100)
+    const p1 = rankScore(vals.trendAlign, t, true);
+    const p2 = rankScore(vals.volTrend, t, true);
+    const p3 = rankScore(vals.volCompress, t, true);
+    const p4 = rankScore(vals.higherLows, t, true);
+    const p5 = rankScore(vals.rsiTraj, t, true);
+    // Sector relative strength - use vs SPY daily as proxy
+    const p6 = spy ? (d.daily > spy.daily ? 80 : 30) : 50;
+
+    d.perScore = p1 * 0.25 + p2 * 0.20 + p3 * 0.15 + p4 * 0.15 + p5 * 0.15 + p6 * 0.10;
+
+    d.signal = combinedSignal(d.momScore, d.perScore);
+    d.combinedRank = (d.momScore || 0) * 0.5 + (d.perScore || 0) * 0.5;
+  }
+}
+
+// --- Rebound setups: which stocks sit below MA20/MA50/MA200 and what's the
+// risk/reward + rough feasibility of reclaiming the NEAREST one within ~3 weeks.
+// This is a heuristic distance/volatility score, not a predicted probability.
+// It says nothing about trend direction - a stock in a persistent downtrend
+// scores identically to one basing for a bounce if the distances match.
+const REBOUND_HORIZON_DAYS = 15; // ~3 trading weeks
+const MIN_RISK_ATR_MULT = 0.5;   // floor risk at 0.5x ATR to avoid /0 or absurd R:R
+const MIN_RR = 1.5;              // only surface setups risking 1R to make 1.5R+
+function computeRebound(stocks) {
+  for (const t of stocks) {
+    const d = data[t];
+    if (!d || d.error) { d.rebound = null; continue; }
+    const price = d.price, atr = d.atr, swingLow = d.swingLow;
+    if (price == null || atr == null || swingLow == null) { d.rebound = null; continue; }
+
+    // MA200 only - MA20/MA50 dropped as targets. They saturated the feasibility
+    // score at 100 for nearly every stock (ATR-based 3-week move comfortably
+    // covers those short distances), so they added rows without adding signal.
+    if (d.ma200 == null || d.ma200 <= price) { d.rebound = { none: true }; continue; }
+    const target = { label: 'MA200', ma: d.ma200 };
+
+    const reward = target.ma - price;
+    let risk = price - swingLow;
+    const minRisk = MIN_RISK_ATR_MULT * atr;
+    const tightStop = risk < minRisk;
+    if (tightStop) risk = minRisk; // floor it so R:R doesn't blow up
+
+    const rr = risk > 0 ? reward / risk : null;
+    const expectedMove = atr * Math.sqrt(REBOUND_HORIZON_DAYS);
+    const feasibility = reward > 0 ? Math.max(0, Math.min(100, (expectedMove / reward) * 100)) : null;
+
+    d.rebound = {
+      label: target.label,
+      target: target.ma,
+      reward: reward,
+      risk: risk,
+      rr: rr,
+      feasibility: feasibility,
+      tightStop: tightStop,
+      swingLow: swingLow
+    };
+  }
+}
+
+// --- Uptrend continuation to MA50: stock has already reclaimed MA200 (price > MA200)
+// AND has stacked averages (MA20 > MA50, the stronger trend-confirmation option -
+// simple price>MA200 was rejected because a single-day poke above a declining
+// 200-day average is a common fakeout, not a confirmed uptrend) AND is still
+// below MA50, so MA50 is the next target above price. Same stop/feasibility
+// methodology as the MA200 table for consistency.
+const MIN_RR_MA50 = 1.5;
+function computeReboundMA50(stocks) {
+  for (const t of stocks) {
+    const d = data[t];
+    if (!d || d.error) { d.reboundMA50 = null; continue; }
+    const price = d.price, atr = d.atr, swingLow = d.swingLow;
+    if (price == null || atr == null || swingLow == null || d.ma20 == null || d.ma50 == null || d.ma200 == null) {
+      d.reboundMA50 = null; continue;
+    }
+
+    const confirmedUptrend = price > d.ma200 && d.ma20 > d.ma50;
+    const needsToRise = d.ma50 > price;
+    if (!confirmedUptrend || !needsToRise) { d.reboundMA50 = { none: true }; continue; }
+
+    const reward = d.ma50 - price;
+    let risk = price - swingLow;
+    const minRisk = MIN_RISK_ATR_MULT * atr;
+    const tightStop = risk < minRisk;
+    if (tightStop) risk = minRisk;
+
+    const rr = risk > 0 ? reward / risk : null;
+    const expectedMove = atr * Math.sqrt(REBOUND_HORIZON_DAYS);
+    const feasibility = reward > 0 ? Math.max(0, Math.min(100, (expectedMove / reward) * 100)) : null;
+
+    d.reboundMA50 = {
+      target: d.ma50,
+      reward: reward,
+      risk: risk,
+      rr: rr,
+      feasibility: feasibility,
+      tightStop: tightStop,
+      swingLow: swingLow
+    };
+  }
+}
+
+function renderDetailed(spy, tickers) {
+  document.getElementById('dcards').innerHTML = tickers.map(t => {
+    const d = data[t];
+    const f = fund[t] || {};
+    const rm = PINNED.has(t) ? '' : '<button class="rm" title="Hide ' + t + '" onclick="hideTicker(\'' + t + '\')">×</button>';
+    const head = (body, err) =>
+      '<div class="dcard">' + rm +
+      '<div class="dcard-head">' +
+        '<span class="logo" style="background:' + logoColor(t) + '">' + esc(t.slice(0, 2)) + '</span>' +
+        '<div class="idblock"><div class="tk"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer">' + esc(t) + '</a></div><div class="ind" title="' + esc(f.name || '') + '">' +
+          esc(f.industry || f.name || '') + '</div></div>' +
+        '<div class="pxblock">' + (d && !d.error ? '<div class="px">' + fmtPrice(d.price) + '</div><div class="dchg">' + pctHtml(d.daily, {dp:2}) + '</div>' : '') + '</div>' +
+      '</div>' + body + '</div>';
+
+    if (!d) return head('<div class="dcard-sector" style="border:none;padding-top:20px">No data</div>', false);
+    if (d.error) return head('<div class="errmsg" style="margin-top:8px">' + esc(d.error).slice(0, 80) + '</div>', true);
+
+    const maxAbs = Math.max(Math.abs(d.m1 || 0), Math.abs(d.m3 || 0), Math.abs(d.y1 || 0), 1);
+    const rangePos = d.hi52 && d.hi52 > d.lo52 ? (d.price - d.lo52) / (d.hi52 - d.lo52) * 100 : null;
+    const vsSpy = spy && t !== 'SPY' ? d.daily - spy.daily : (t === 'SPY' ? 0 : null);
+
+    let body = sparkSvg(d.spark);
+    body += '<div class="chips3">' + retChip('1M', d.m1, maxAbs) + retChip('3M', d.m3, maxAbs) + retChip('1Y', d.y1, maxAbs) + '</div>';
+    if (d.hi52 != null && rangePos != null) {
+      body += '<div class="range-row"><b>' + fmtPrice(d.lo52) + '</b><span>52W range</span><b>' + fmtPrice(d.hi52) + '</b></div>' +
+        '<div class="range-track"><i style="left:calc(' + Math.max(0, Math.min(100, rangePos)).toFixed(1) + '% - 4px)"></i></div>';
+    }
+    body += '<div class="dstats">' +
+      '<div><div class="k">Market cap</div><div class="v">' + fmtMcap(f.mcap) + '</div></div>' +
+      '<div><div class="k">Volume</div><div class="v">' + fmtVol(d.vol) + '</div></div>' +
+      '<div><div class="k">Beta</div><div class="v">' + (f.beta != null ? Number(f.beta).toFixed(2) : '—') + '</div></div>' +
+      '<div><div class="k">Avg volume (20D)</div><div class="v">' + fmtVol(d.avgVol) + '</div></div>' +
+      '<div><div class="k">Off 52W high</div><div class="v">' + pctHtml(d.offHigh, {arrow:false, dp:1}) + '</div></div>' +
+      '<div><div class="k">vs SPY (daily)</div><div class="v">' + (vsSpy == null ? '—' : pctHtml(vsSpy, {sign:true, arrow:false, dp:2})) + '</div></div>' +
+      '</div>';
+    // Add momentum/persistence/signal row
+    body += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;border-top:1px solid #f3f4f6;padding-top:10px">' +
+      '<div><div class="k">Momentum</div><div class="v">' + (d.momScore != null ? Math.round(d.momScore) + '/100' : '—') + '</div></div>' +
+      '<div><div class="k">Persistence</div><div class="v">' + (d.perScore != null ? Math.round(d.perScore) + '/100' : '—') + '</div></div>' +
+      '<div><div class="k">Signal</div><div class="v">' + signalBadge(d.signal) + '</div></div>' +
+      '</div>';
+    body += '<div class="dcard-sector">Sector<b>' + esc(f.sector || '—') + '</b></div>';
+    return head(body, false);
+  }).join('');
+}
+const COLS = [
+  ['sym', 'Ticker'], ['price', 'Price'], ['daily', 'Daily'], ['wtd', 'WTD'], ['mtd', 'MTD'],
+  ['ytd', 'YTD'], ['y1', '1Y'], ['vsSpy', 'vs SPY'], ['mom', 'Momentum'], ['per', 'Persist'], ['sig', 'Signal'],
+  ['target', 'Analyst Target'], ['mcap', 'Market cap'], ['vol', 'Volume']
+];
+function renderTable(spy, tickers) {
+  document.getElementById('theadRow').innerHTML = COLS.map(c =>
+    '<th onclick="setSort(\'' + c[0] + '\')">' + c[1] +
+    (sortCol === c[0] ? ' <span class="arrow">' + (sortDir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>'
+  ).join('');
+
+  const rows = tickers.filter(t => data[t] && !data[t].error).map(t => {
+    const d = data[t];
+    const f = fund[t] || {};
+    const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
+    return { sym: t, price: d.price, daily: d.daily, wtd: d.wtd, mtd: d.mtd, ytd: d.ytd, y1: d.y1,
+             vsSpy: spy ? d.daily - spy.daily : null, mom: d.momScore, per: d.perScore, sig: d.signal,
+             target: targetUpside, f: f,
+             mcap: f.mcap != null ? f.mcap : null, vol: d.vol };
+  });
+  rows.sort((a, b) => {
+    const x = a[sortCol], y = b[sortCol];
+    if (sortCol === 'sym') return sortDir * String(x).localeCompare(String(y));
+    if (sortCol === 'sig') {
+      const rank = {'STRONG BUY':9, 'BUY':8, 'ACCUMULATE':7, 'HOLD':6, 'CAUTION':5, 'WEAKENING':4, 'WATCH':3, 'AVOID':2, 'SELL':1};
+      return sortDir * ((rank[x] || 0) - (rank[y] || 0));
+    }
+    return sortDir * ((x == null ? -Infinity : x) - (y == null ? -Infinity : y));
+  });
+
+  const extraRows = tickers.filter(t => data[t] && data[t].error).map(t =>
+    '<tr><td>' + t + '</td><td colspan="13" style="text-align:left"><span class="down">no data: ' +
+    esc(data[t].error).slice(0, 40) + '</span></td></tr>'
+  ).join('');
+
+  document.getElementById('tbody').innerHTML = rows.map(r =>
+    '<tr><td><a class="tklink" href="' + rallyLink(r.sym) + '" target="_blank" rel="noopener noreferrer">' + r.sym + '</a>' + (BENCHMARKS.has(r.sym) ? '<span class="bench-badge">Benchmark</span>' : '') + '</td>' +
+    '<td>' + fmtPrice(r.price) + '</td>' +
+    '<td>' + pctHtml(r.daily, {dp:2}) + '</td>' +
+    '<td>' + pctHtml(r.wtd) + '</td>' +
+    '<td>' + pctHtml(r.mtd) + '</td>' +
+    '<td>' + pctHtml(r.ytd) + '</td>' +
+    '<td>' + pctHtml(r.y1) + '</td>' +
+    '<td>' + pctHtml(r.vsSpy, {sign:true, arrow:false, dp:2}) + '</td>' +
+    '<td>' + scoreBadge(r.mom) + '</td>' +
+    '<td>' + scoreBadge(r.per) + '</td>' +
+    '<td>' + signalBadge(r.sig) + '</td>' +
+    '<td>' + targetHtml(r.sym, r.f, r.price) + '</td>' +
+    '<td>' + fmtMcap(r.mcap) + '</td>' +
+    '<td>' + fmtVol(r.vol) + '</td></tr>'
+  ).join('') + extraRows;
+}
+function rrBadge(rr) {
+  if (rr == null) return '<span style="color:#6b7280">—</span>';
+  const color = rr >= 3 ? '#0a9e5c' : rr >= 1.5 ? '#6b7280' : '#e5484d';
+  return '<span style="color:' + color + ';font-weight:700">' + rr.toFixed(2) + '</span>';
+}
+function feasBadge(f) {
+  if (f == null) return '<span style="color:#6b7280">—</span>';
+  const color = f >= 66 ? '#0a9e5c' : f >= 33 ? '#f59e0b' : '#e5484d';
+  return '<span style="color:' + color + ';font-weight:700">' + Math.round(f) + '</span>';
+}
+const REBOUND_COLS = [
+  ['sym','Ticker'], ['price','Price'], ['ma','MA200'], ['dist','Distance'],
+  ['stop','Stop (12D low)'], ['rr','R:R'], ['feas','Feasibility'], ['target','Analyst Target']
+];
+function renderRebound(stocks) {
+  const el = document.getElementById('reboundBody');
+  if (!el) return;
+  const theadEl = document.getElementById('reboundTheadRow');
+  if (theadEl) {
+    theadEl.innerHTML = REBOUND_COLS.map(c =>
+      '<th onclick="setReboundSort(\'' + c[0] + '\')">' + c[1] +
+      (reboundSortCol === c[0] ? ' <span class="arrow">' + (reboundSortDir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>'
+    ).join('');
+  }
+
+  const belowMA200 = stocks.filter(t => data[t] && data[t].rebound && !data[t].rebound.none);
+  const eligible = belowMA200.filter(t => data[t].rebound.rr != null && data[t].rebound.rr >= MIN_RR);
+  const skippedWeakRR = belowMA200.length - eligible.length;
+  const skippedNoTarget = stocks.filter(t => data[t] && data[t].rebound && data[t].rebound.none).length;
+  const skippedNoData = stocks.filter(t => data[t] && !data[t].rebound).length;
+
+  const rows = eligible.map(t => {
+    const d = data[t], r = data[t].rebound, f = fund[t] || {};
+    const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
+    return { sym: t, price: d.price, ma: r.target, dist: pct(r.target, d.price), stop: r.swingLow,
+             rr: r.rr, feas: r.feasibility, target: targetUpside, _r: r };
+  });
+  rows.sort((a, b) => {
+    const x = a[reboundSortCol], y = b[reboundSortCol];
+    if (reboundSortCol === 'sym') return reboundSortDir * String(x).localeCompare(String(y));
+    return reboundSortDir * ((x == null ? -Infinity : x) - (y == null ? -Infinity : y));
+  });
+
+  const caption = document.getElementById('reboundCaption');
+  if (caption) {
+    caption.textContent = rows.length + ' of ' + stocks.length + ' stocks are below MA200 with R:R >= ' + MIN_RR + '. ' +
+      belowMA200.length + ' total sit below MA200, but ' + skippedWeakRR + ' were filtered out for R:R under ' + MIN_RR + '. ' +
+      skippedNoTarget + ' are already above MA200 (nothing to reclaim). ' +
+      (skippedNoData ? skippedNoData + ' skipped (insufficient bars for MA200/ATR).' : '') +
+      ' Feasibility is a distance-vs-volatility heuristic, not a probability - it ignores trend direction.';
+  }
+
+  el.innerHTML = rows.length ? rows.map(row => {
+    const r = row._r;
+    return '<tr><td><a class="tklink" href="' + rallyLink(row.sym) + '" target="_blank" rel="noopener noreferrer">' + row.sym + '</a></td>' +
+      '<td>' + fmtPrice(row.price) + '</td>' +
+      '<td>' + fmtPrice(row.ma) + '</td>' +
+      '<td>' + pctHtml(row.dist, {arrow:false, sign:true, dp:1}) + '</td>' +
+      '<td>' + fmtPrice(row.stop) + (r.tightStop ? ' <span title="Swing low was tighter than 0.5x ATR - floored to avoid an inflated R:R" style="color:#92400e">*</span>' : '') + '</td>' +
+      '<td>' + rrBadge(row.rr) + '</td>' +
+      '<td>' + feasBadge(row.feas) + '</td>' +
+      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td></tr>';
+  }).join('') : '<tr><td colspan="8" class="empty">No stocks below MA200 currently clear an R:R of ' + MIN_RR + '+.</td></tr>';
+}
+function setReboundSort(col) {
+  if (reboundSortCol === col) reboundSortDir = -reboundSortDir; else { reboundSortCol = col; reboundSortDir = col === 'sym' ? 1 : -1; }
+  render();
+}
+const REBOUND_MA50_COLS = [
+  ['sym','Ticker'], ['price','Price'], ['ma','MA50'], ['dist','Distance'],
+  ['stop','Stop (12D low)'], ['rr','R:R'], ['feas','Feasibility'], ['target','Analyst Target']
+];
+function renderReboundMA50(stocks) {
+  const el = document.getElementById('reboundMA50Body');
+  if (!el) return;
+  const theadEl = document.getElementById('reboundMA50TheadRow');
+  if (theadEl) {
+    theadEl.innerHTML = REBOUND_MA50_COLS.map(c =>
+      '<th onclick="setReboundMA50Sort(\'' + c[0] + '\')">' + c[1] +
+      (reboundMA50SortCol === c[0] ? ' <span class="arrow">' + (reboundMA50SortDir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>'
+    ).join('');
+  }
+
+  const confirmed = stocks.filter(t => data[t] && data[t].reboundMA50 && !data[t].reboundMA50.none);
+  const eligible = confirmed.filter(t => data[t].reboundMA50.rr != null && data[t].reboundMA50.rr >= MIN_RR_MA50);
+  const skippedWeakRR = confirmed.length - eligible.length;
+  const skippedNotConfirmed = stocks.filter(t => data[t] && data[t].reboundMA50 && data[t].reboundMA50.none).length;
+  const skippedNoData = stocks.filter(t => data[t] && !data[t].reboundMA50).length;
+
+  const rows = eligible.map(t => {
+    const d = data[t], r = data[t].reboundMA50, f = fund[t] || {};
+    const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
+    return { sym: t, price: d.price, ma: r.target, dist: pct(r.target, d.price), stop: r.swingLow,
+             rr: r.rr, feas: r.feasibility, target: targetUpside, _r: r };
+  });
+  rows.sort((a, b) => {
+    const x = a[reboundMA50SortCol], y = b[reboundMA50SortCol];
+    if (reboundMA50SortCol === 'sym') return reboundMA50SortDir * String(x).localeCompare(String(y));
+    return reboundMA50SortDir * ((x == null ? -Infinity : x) - (y == null ? -Infinity : y));
+  });
+
+  const caption = document.getElementById('reboundMA50Caption');
+  if (caption) {
+    caption.textContent = rows.length + ' of ' + stocks.length + ' stocks have reclaimed MA200 with MA20 > MA50 (stacked, trend-confirmed) and R:R >= ' + MIN_RR_MA50 + ' to MA50. ' +
+      confirmed.length + ' total meet the trend confirmation, but ' + skippedWeakRR + ' were filtered out for R:R under ' + MIN_RR_MA50 + '. ' +
+      skippedNotConfirmed + ' do not meet the confirmation (below MA200, MA20 not above MA50, or already above MA50). ' +
+      (skippedNoData ? skippedNoData + ' skipped (insufficient bars for MA20/50/200/ATR).' : '') +
+      ' Feasibility is a distance-vs-volatility heuristic, not a probability.';
+  }
+
+  el.innerHTML = rows.length ? rows.map(row => {
+    const r = row._r;
+    return '<tr><td><a class="tklink" href="' + rallyLink(row.sym) + '" target="_blank" rel="noopener noreferrer">' + row.sym + '</a></td>' +
+      '<td>' + fmtPrice(row.price) + '</td>' +
+      '<td>' + fmtPrice(row.ma) + '</td>' +
+      '<td>' + pctHtml(row.dist, {arrow:false, sign:true, dp:1}) + '</td>' +
+      '<td>' + fmtPrice(row.stop) + (r.tightStop ? ' <span title="Swing low was tighter than 0.5x ATR - floored to avoid an inflated R:R" style="color:#92400e">*</span>' : '') + '</td>' +
+      '<td>' + rrBadge(row.rr) + '</td>' +
+      '<td>' + feasBadge(row.feas) + '</td>' +
+      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td></tr>';
+  }).join('') : '<tr><td colspan="8" class="empty">No trend-confirmed (MA200 reclaimed, MA20>MA50) stocks currently clear an R:R of ' + MIN_RR_MA50 + '+ to MA50.</td></tr>';
+}
+function setReboundMA50Sort(col) {
+  if (reboundMA50SortCol === col) reboundMA50SortDir = -reboundMA50SortDir; else { reboundMA50SortCol = col; reboundMA50SortDir = col === 'sym' ? 1 : -1; }
+  render();
+}
+function setSort(col) {
+  if (sortCol === col) sortDir = -sortDir; else { sortCol = col; sortDir = col === 'sym' ? 1 : -1; }
+  render();
+}
+
+function hideTicker(sym) {
+  if (PINNED.has(sym)) return;
+  hidden.add(sym);
+  saveHidden();
+  render();
+}
+
+async function loadData() {
+  try {
+    const res = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
+    const j = await res.json();
+    asofStr = j.asof;
+    allTickers = Object.keys(j.tickers || {});
+    for (const sym of allTickers) {
+      const entry = j.tickers[sym];
+      if (entry.error || !entry.bars || entry.bars.length < 2) {
+        data[sym] = { error: entry.error || 'no bars' };
+      } else {
+        data[sym] = computeMetrics(entry.bars);
+      }
+      fund[sym] = { name: entry.name, sector: entry.sector, industry: entry.industry, mcap: entry.mcap, beta: entry.beta,
+                    targetMean: entry.targetMean, targetHigh: entry.targetHigh, targetLow: entry.targetLow, numAnalysts: entry.numAnalysts };
+    }
+  } catch (e) {
+    document.getElementById('cards').innerHTML = '<div class="empty">Could not load data.json — ' + esc(e.message) + '</div>';
+    return false;
+  }
+  render();
+  return true;
+}
+
+// Soft refresh, not a page reload: re-fetches data.json and re-runs the
+// existing render() pipeline in place. A full location.reload() every 10
+// minutes would reset scroll position and any open interaction state for
+// zero benefit over this - same fresh data, none of the disruption.
+// This only refreshes what's IN data.json when this fires - if the backend
+// isn't updating data.json, this will faithfully re-fetch the same stale
+// file every 10 minutes.
+const DATA_REFRESH_MS = 10 * 60 * 1000;
+
+(async function init() {
+  const ok = await loadData();
+  if (!ok) return;
+  setInterval(loadData, DATA_REFRESH_MS);
+})();
+</script>
+</body>
+</html>
