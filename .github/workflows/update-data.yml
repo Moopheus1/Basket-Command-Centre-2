@@ -75,30 +75,57 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/data.json docs/alert_state.json
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            git commit -m "Update market data [skip ci]"
-            # main can move between this job's checkout and this push (another
-            # trigger, a manual edit, anything) - the concurrency group above
-            # only serializes this workflow against itself, it does not protect
-            # against that. Retry with rebase instead of failing outright.
-            pushed=false
-            for i in 1 2 3 4 5; do
-              if git pull --rebase origin main && git push; then
-                pushed=true
-                break
-              fi
-              echo "Push attempt $i failed (remote moved), retrying..."
-              sleep 3
-            done
-            if [ "$pushed" = false ]; then
-              echo "::error::Failed to push after 5 attempts - remote kept moving or rebase conflicted"
-              exit 1
+
+          # docs/data.json and docs/alert_state.json are written with no
+          # indentation (single-line JSON) - fast, but it means two runs
+          # touching the same file produce a real content conflict on that
+          # one line, which git cannot auto-merge no matter how many times
+          # a pull-rebase is retried (confirmed: retrying an unresolved
+          # rebase just repeats the identical failure, since the conflict
+          # from attempt 1 is never cleaned up before attempt 2).
+          #
+          # The correct fix is to never attempt a merge on these two paths
+          # at all: they are 100% machine-regenerated every run, so there
+          # is no legitimate "partial old + partial new" version worth
+          # preserving - whichever run finishes last should simply win
+          # outright. Each retry resets to the latest remote tip and
+          # re-applies OUR already-computed files on top, which is always
+          # a clean fast-forward, never a content merge.
+          # Save the freshly-fetched output BEFORE any git manipulation.
+          # git reset --hard overwrites tracked files' working-tree content
+          # back to whatever origin has - confirmed directly, not assumed:
+          # a reset silently discards uncommitted fresh content and leaves
+          # the stale committed version in place. Each retry below must
+          # restore the fresh copy after every reset, not just once, or a
+          # retry would succeed while quietly throwing away real data.
+          cp docs/data.json /tmp/fresh_data.json
+          cp docs/alert_state.json /tmp/fresh_alert_state.json
+
+          pushed=false
+          for i in 1 2 3 4 5; do
+            git fetch origin main -q
+            git reset --hard origin/main -q
+            cp /tmp/fresh_data.json docs/data.json
+            cp /tmp/fresh_alert_state.json docs/alert_state.json
+            git add docs/data.json docs/alert_state.json
+            if git diff --staged --quiet; then
+              echo "No changes to commit"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              pushed=true
+              break
             fi
-            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git commit -q -m "Update market data [skip ci]"
+            if git push -q; then
+              pushed=true
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              break
+            fi
+            echo "Push attempt $i failed (remote moved again), retrying..."
+            sleep 3
+          done
+          if [ "$pushed" = false ]; then
+            echo "::error::Failed to push after 5 attempts - remote kept moving faster than 5 retries could catch up"
+            exit 1
           fi
       - name: Trigger Pages deploy
         # GITHUB_TOKEN-authenticated pushes don't fire other workflows' `push`
