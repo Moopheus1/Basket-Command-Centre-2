@@ -10,9 +10,9 @@ Runs in GitHub Actions (see .github/workflows/update-data.yml), 34x/weekday:
                            and merges it into the EXISTING docs/data.json's
                            bar history (replacing today's bar if already
                            present, appending it if not). Skips tk.info()
-                           entirely, since sector/industry/mcap/beta don't
-                           change intraday - those fields are carried over
-                           unchanged from the last EOD fetch.
+                           entirely, since sector/industry/mcap/beta/
+                           nextEarnings don't change intraday - those fields
+                           are carried over unchanged from the last EOD fetch.
 
 Design intent: the heavy call (.history(period="430d") + .info) only happens
 once a day. The other 33 daily runs each do one lightweight 1-minute pull per
@@ -31,7 +31,7 @@ Uses yfinance (Yahoo Finance).
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 import pandas as pd
 import yfinance as yf
@@ -61,6 +61,41 @@ def load_existing():
         return None
 
 
+def get_next_earnings_date(tk):
+    """Return the next earnings date for an already-created yfinance Ticker
+    object as an ISO date string ('2026-07-30'), or None if unavailable
+    (ETFs/benchmarks like SPY, or thin analyst coverage). Best-effort like
+    the .info call below - never raises, since a missing earnings date
+    shouldn't block the rest of a ticker's fetch."""
+    today = date.today()
+
+    # Primary: .calendar - fast, single call, but Yahoo often only knows a
+    # 1-2 day *window* rather than the exact day, and coverage is patchy
+    # for thinly-covered names.
+    try:
+        cal = tk.calendar
+        dates = cal.get("Earnings Date") if cal else None
+        if dates:
+            future = [d for d in dates if d >= today]
+            if future:
+                return min(future).isoformat()
+    except Exception:
+        pass
+
+    # Fallback: get_earnings_dates() - a separate request, slower, but more
+    # reliable coverage; take the earliest future date in the returned table.
+    try:
+        df = tk.get_earnings_dates(limit=8)
+        if df is not None and not df.empty:
+            future_idx = [d for d in df.index if d.date() >= today]
+            if future_idx:
+                return min(future_idx).date().isoformat()
+    except Exception:
+        pass
+
+    return None
+
+
 def fetch_full(symbol):
     """Heavy path: full history + fundamentals. Used for EOD and fallback runs."""
     tk = yf.Ticker(symbol)
@@ -87,6 +122,7 @@ def fetch_full(symbol):
         info = tk.info or {}
     except Exception:
         pass  # fundamentals are best-effort; bars are the essential part
+    next_earnings = get_next_earnings_date(tk)
     return {
         "name": info.get("shortName") or info.get("longName"),
         "sector": info.get("sector"),
@@ -97,6 +133,7 @@ def fetch_full(symbol):
         "targetHigh": info.get("targetHighPrice"),
         "targetLow": info.get("targetLowPrice"),
         "numAnalysts": info.get("numberOfAnalystOpinions"),
+        "nextEarnings": next_earnings,
         "bars": bars,
     }
 
@@ -177,6 +214,7 @@ def run_intraday(tickers, existing):
                 "targetHigh": prior.get("targetHigh"),
                 "targetLow": prior.get("targetLow"),
                 "numAnalysts": prior.get("numAnalysts"),
+                "nextEarnings": prior.get("nextEarnings"),
                 "bars": merged_bars,
             }
             ok += 1
