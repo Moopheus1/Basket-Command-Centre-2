@@ -2,13 +2,36 @@ name: Update market data
 
 on:
   schedule:
-    # --- Intraday: premarket 8:00am ET (1.5h before open) through 1:30pm ET
-    # (4h after open), every 10 min, one continuous block (34 runs/day) ---
-    - cron: "0,10,20,30,40,50 8,9,10,11,12 * * 1-5"
+    # --- Early ping: single lightweight run well before premarket volume
+    # ramps up. Mostly a no-op for anything outside mega-caps (few market
+    # makers active this early), but cheap enough (~83 fetches) to be worth
+    # catching the rare overnight earnings surprise / M&A headline ---
+    - cron: "0 4 * * 1-5"
       timezone: "America/New_York"
-    - cron: "0,10,20,30 13 * * 1-5"
+    # --- Premarket: 6:00-9:30am ET, every 10 min (21 runs). Expect SKIPs in
+    # the logs for thinner names before real premarket volume shows up -
+    # fetch_today_bar() already handles that gracefully, not an error ---
+    - cron: "0,10,20,30,40,50 6,7,8 * * 1-5"
       timezone: "America/New_York"
-    # --- EOD: single run at 4:30pm ET, after close settles ---
+    - cron: "0,10,20 9 * * 1-5"
+      timezone: "America/New_York"
+    # --- Open: 9:30-11:30am ET, every 5 min (24 runs) - this is where
+    # volume/volatility actually concentrate, so it gets the densest cadence ---
+    - cron: "30,35,40,45,50,55 9 * * 1-5"
+      timezone: "America/New_York"
+    - cron: "0,5,10,15,20,25,30,35,40,45,50,55 10 * * 1-5"
+      timezone: "America/New_York"
+    - cron: "0,5,10,15,20,25 11 * * 1-5"
+      timezone: "America/New_York"
+    # --- Lull: 11:30am-2:30pm ET, every 15 min (13 runs) - midday volume
+    # taper, lower cadence is enough here ---
+    - cron: "30,45 11 * * 1-5"
+      timezone: "America/New_York"
+    - cron: "0,15,30,45 12,13 * * 1-5"
+      timezone: "America/New_York"
+    - cron: "0,15,30 14 * * 1-5"
+      timezone: "America/New_York"
+    # --- EOD: single run at 4:30pm ET, after close settles (unchanged) ---
     - cron: "30 16 * * 1-5"
       timezone: "America/New_York"
   workflow_dispatch:
