@@ -110,16 +110,16 @@
   <a href="#uptrendPanel">↓ Uptrend MA50</a>
   <a href="#goldenPanel">↓ Golden cross</a>
   <a href="#deathPanel">↓ Death cross</a>
+  <a href="#performancePanel">↓ Performance</a>
   <a href="#watchlistPanel">↓ Watchlist</a>
   <a href="#detailedPanel">↓ Ticker cards</a>
-  <a href="#performancePanel">↓ Performance</a>
 </div>
 
 <div class="statgrid" id="stats"></div>
 
 <div class="panel" id="reboundPanel">
   <h2>Rebound setups to MA200, R:R 1.5+ (2-3 weeks view)</h2>
-  <div class="desc" id="reboundCaption">Stocks below MA200 with at least 1.5R reward for 1R risked. Stop = lowest low of last 12 bars (floored at 0.5x ATR14). Feasibility is a distance-vs-3-week-volatility heuristic, not a predicted probability - it does not account for trend direction.</div>
+  <div class="desc" id="reboundCaption">Stocks below MA200 with at least 1.5R reward for 1R risked. Stop = lowest low of last 12 bars (floored at 0.5x ATR14). Feasibility checks whether the required move is mathematically reasonable given this stock's own volatility (ATR scaled by sqrt of time) - it is not a predicted probability and does not account for trend direction. A high score just means the distance isn't statistically unusual for this stock; see Conviction for evidence the reversal is actually underway.</div>
   <div style="overflow-x:auto">
     <table>
       <thead><tr id="reboundTheadRow"></tr></thead>
@@ -130,7 +130,7 @@
 
 <div class="panel" id="uptrendPanel">
   <h2>Uptrend continuation to MA50, R:R 1.5+ (2-3 weeks view)</h2>
-  <div class="desc" id="reboundMA50Caption">Stocks that have reclaimed MA200 (price above it) with MA20 above MA50 (stacked averages, confirms trend rather than a single-day poke above MA200), still below MA50, and at least 1.5R reward for 1R risked to reach it. Same stop/feasibility methodology as the MA200 table.</div>
+  <div class="desc" id="reboundMA50Caption">Stocks that have reclaimed MA200 (price above it) with MA20 above MA50 (stacked averages, confirms trend rather than a single-day poke above MA200), still below MA50, and at least 1.5R reward for 1R risked to reach it. Same stop/feasibility methodology as the MA200 table: feasibility checks whether the required move is mathematically reasonable given this stock's own volatility, not whether it is likely to happen. See Conviction for reversal evidence.</div>
   <div style="overflow-x:auto">
     <table>
       <thead><tr id="reboundMA50TheadRow"></tr></thead>
@@ -161,18 +161,6 @@
   </div>
 </div>
 
-<div class="panel" id="watchlistPanel">
-  <h2>Watchlist</h2>
-  <div class="desc">Hide a ticker with the &times; on its card. To track a NEW ticker or restore a hidden one, edit <b>tickers.txt</b> or re-run the workflow in the GitHub repo.</div>
-  <div class="cards" id="cards"></div>
-</div>
-
-<div class="panel" id="detailedPanel">
-  <h2>Detailed ticker cards</h2>
-  <div class="desc">Last close, 3-month daily trend line, 1M/3M/1Y returns, 52-week range position, market cap, beta, volume vs 20-day average, sector, and industry.</div>
-  <div class="dcards" id="dcards"></div>
-</div>
-
 <div class="panel" id="performancePanel">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
     <h2>Performance overview</h2>
@@ -188,15 +176,27 @@
   <a href="#top" class="jumpbar-inline">↑ Back to top</a>
 </div>
 
+<div class="panel" id="watchlistPanel">
+  <h2>Watchlist</h2>
+  <div class="desc">Hide a ticker with the &times; on its card. To track a NEW ticker or restore a hidden one, edit <b>tickers.txt</b> or re-run the workflow in the GitHub repo.</div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<div class="panel" id="detailedPanel">
+  <h2>Detailed ticker cards</h2>
+  <div class="desc">Last close, 3-month daily trend line, 1M/3M/1Y returns, 52-week range position, market cap, beta, volume vs 20-day average, sector, and industry.</div>
+  <div class="dcards" id="dcards"></div>
+</div>
+
 <div class="jumpbar" style="margin:14px 0 20px">
   <a href="#top">↑ Top</a>
   <a href="#reboundPanel">Rebound MA200</a>
   <a href="#uptrendPanel">Uptrend MA50</a>
   <a href="#goldenPanel">Golden cross</a>
   <a href="#deathPanel">Death cross</a>
+  <a href="#performancePanel">Performance</a>
   <a href="#watchlistPanel">Watchlist</a>
   <a href="#detailedPanel">Ticker cards</a>
-  <a href="#performancePanel">Performance</a>
 </div>
 
 <script>
@@ -433,6 +433,21 @@ function fmtMcap(v) {
   if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
   return '$' + Math.round(v).toLocaleString();
 }
+// Flags earnings falling inside the ~3-week rebound/uptrend horizon in red -
+// that's event risk sitting inside what looks like a pure technical setup,
+// which neither Feasibility nor Conviction can see.
+function fmtEarnings(dateStr) {
+  if (!dateStr) return '<span style="color:#6b7280">—</span>';
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return '<span style="color:#6b7280">—</span>';
+  const daysOut = Math.round((d - new Date()) / 86400000);
+  const label = d.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+  if (daysOut < 0) return '<span style="color:#6b7280">' + label + '</span>';
+  const withinWindow = daysOut <= Math.round(REBOUND_HORIZON_DAYS * 1.4); // ~15 trading days -> ~21 calendar days
+  return withinWindow
+    ? '<span style="color:#e5484d;font-weight:700">' + label + '</span> <span title="Earnings fall inside the rebound/uptrend window - event risk, not a pure technical setup">⚠</span>'
+    : '<span>' + label + '</span>';
+}
 function targetHtml(t, f, price) {
   if (!f || f.targetMean == null || price == null) return '<span style="color:#6b7280">—</span>';
   const upside = pct(f.targetMean, price);
@@ -498,6 +513,7 @@ function render() {
 
   // Compute scores for all stocks
   computeScores(stocks);
+  computeReboundConviction(stocks);
   computeRebound(stocks);
   computeReboundMA50(stocks);
 
@@ -719,6 +735,58 @@ function computeScores(stocks) {
   }
 }
 
+// --- Conviction: does the evidence actually support a reversal, independent
+// of Feasibility (which only checks whether the required move is mathematically
+// reasonable given volatility, and cannot tell a basing stock from one still in
+// freefall). Four factors, each already computed in computeMetrics/computeScores,
+// scored 0-100 against fixed absolute ranges (not ranked against today's peer
+// set, so a ticker's score doesn't shift just because other tickers enter or
+// leave the eligible list):
+//   - Higher lows (last 20 sessions): is it actually basing, or still making lows?
+//   - RSI rising + in the 25-45 "recovering from oversold" band, not just rising
+//     from an already-neutral level
+//   - ATR contracting vs its prior reading: selling pressure drying up
+//   - 5-day return relative to SPY: is the weakness idiosyncratic (worth betting
+//     on) or just the stock getting dragged down with the whole tape?
+// Equal-weighted average. This is a evidence checklist, not a probability either -
+// it just answers a different question than Feasibility does.
+const REL_STRENGTH_BOUND = 10; // +/-10% 5D relative return maps to the 0-100 range
+function computeReboundConviction(stocks) {
+  const spy = data['SPY'] && !data['SPY'].error ? data['SPY'] : null;
+  for (const t of stocks) {
+    const d = data[t];
+    if (!d || d.error) { d.reboundConviction = null; continue; }
+
+    // Higher lows: already a 0-1 ratio (fraction of higher lows over the lookback)
+    const higherLowsScore = d.higherLows != null ? d.higherLows * 100 : 50;
+
+    // RSI: rising is worth 25, sitting in the 25-45 "recovering, not yet
+    // overbought" band is worth another 25, on top of a 50 neutral base
+    let rsiScore = 50;
+    if (d.rsi != null && d.rsiPrev != null) {
+      rsiScore = 50 + (d.rsi > d.rsiPrev ? 25 : -25) + (d.rsi >= 25 && d.rsi <= 45 ? 25 : -25);
+      rsiScore = Math.max(0, Math.min(100, rsiScore));
+    }
+
+    // Volatility compression: is ATR contracting vs its prior reading, independent
+    // of price direction (which higher-lows already covers)
+    const volCompressScore = (d.atr != null && d.atrPrev != null)
+      ? (d.atr < d.atrPrev ? 100 : 0) : 50;
+
+    // 5D relative strength vs SPY: idiosyncratic weakness (candidate worth betting
+    // on) vs getting dragged down with the whole market (more macro risk)
+    let relStrengthScore = 50;
+    if (spy && spy.closes && spy.closes.length >= 6 && d.closes && d.closes.length >= 6) {
+      const sym5 = (d.closes[d.closes.length - 1] - d.closes[d.closes.length - 6]) / d.closes[d.closes.length - 6] * 100;
+      const spy5 = (spy.closes[spy.closes.length - 1] - spy.closes[spy.closes.length - 6]) / spy.closes[spy.closes.length - 6] * 100;
+      const rel = sym5 - spy5;
+      relStrengthScore = Math.max(0, Math.min(100, (rel + REL_STRENGTH_BOUND) / (2 * REL_STRENGTH_BOUND) * 100));
+    }
+
+    d.reboundConviction = (higherLowsScore + rsiScore + volCompressScore + relStrengthScore) / 4;
+  }
+}
+
 // --- Rebound setups: which stocks sit below MA20/MA50/MA200 and what's the
 // risk/reward + rough feasibility of reclaiming the NEAREST one within ~3 weeks.
 // This is a heuristic distance/volatility score, not a predicted probability.
@@ -853,7 +921,7 @@ function renderDetailed(spy, tickers) {
 const COLS = [
   ['sym', 'Ticker'], ['price', 'Price'], ['daily', 'Daily'], ['wtd', 'WTD'], ['mtd', 'MTD'],
   ['ytd', 'YTD'], ['y1', '1Y'], ['vsSpy', 'vs SPY'], ['mom', 'Momentum'], ['per', 'Persist'], ['sig', 'Signal'],
-  ['target', 'Analyst Target'], ['mcap', 'Market cap'], ['vol', 'Volume']
+  ['target', 'Analyst Target'], ['earnings', 'Next Earnings'], ['mcap', 'Market cap'], ['vol', 'Volume']
 ];
 function renderTable(spy, tickers) {
   document.getElementById('theadRow').innerHTML = COLS.map(c =>
@@ -867,7 +935,7 @@ function renderTable(spy, tickers) {
     const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
     return { sym: t, price: d.price, daily: d.daily, wtd: d.wtd, mtd: d.mtd, ytd: d.ytd, y1: d.y1,
              vsSpy: spy ? d.daily - spy.daily : null, mom: d.momScore, per: d.perScore, sig: d.signal,
-             target: targetUpside, f: f,
+             target: targetUpside, earnings: f.nextEarnings, f: f,
              mcap: f.mcap != null ? f.mcap : null, vol: d.vol };
   });
   rows.sort((a, b) => {
@@ -881,7 +949,7 @@ function renderTable(spy, tickers) {
   });
 
   const extraRows = tickers.filter(t => data[t] && data[t].error).map(t =>
-    '<tr><td>' + t + '</td><td colspan="13" style="text-align:left"><span class="down">no data: ' +
+    '<tr><td>' + t + '</td><td colspan="14" style="text-align:left"><span class="down">no data: ' +
     esc(data[t].error).slice(0, 40) + '</span></td></tr>'
   ).join('');
 
@@ -898,6 +966,7 @@ function renderTable(spy, tickers) {
     '<td>' + scoreBadge(r.per) + '</td>' +
     '<td>' + signalBadge(r.sig) + '</td>' +
     '<td>' + targetHtml(r.sym, r.f, r.price) + '</td>' +
+    '<td>' + fmtEarnings(r.earnings) + '</td>' +
     '<td>' + fmtMcap(r.mcap) + '</td>' +
     '<td>' + fmtVol(r.vol) + '</td></tr>'
   ).join('') + extraRows;
@@ -914,7 +983,8 @@ function feasBadge(f) {
 }
 const REBOUND_COLS = [
   ['sym','Ticker'], ['price','Price'], ['ma','MA200'], ['dist','Distance'],
-  ['stop','Stop (12D low)'], ['rr','R:R'], ['feas','Feasibility'], ['target','Analyst Target']
+  ['stop','Stop (12D low)'], ['rr','R:R'], ['feas','Feasibility'], ['conviction','Conviction'],
+  ['target','Analyst Target'], ['earnings','Next Earnings']
 ];
 function renderRebound(stocks) {
   const el = document.getElementById('reboundBody');
@@ -937,7 +1007,8 @@ function renderRebound(stocks) {
     const d = data[t], r = data[t].rebound, f = fund[t] || {};
     const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
     return { sym: t, price: d.price, ma: r.target, dist: pct(r.target, d.price), stop: r.swingLow,
-             rr: r.rr, feas: r.feasibility, target: targetUpside, _r: r };
+             rr: r.rr, feas: r.feasibility, conviction: d.reboundConviction, target: targetUpside,
+             earnings: f.nextEarnings, _r: r };
   });
   rows.sort((a, b) => {
     const x = a[reboundSortCol], y = b[reboundSortCol];
@@ -951,7 +1022,7 @@ function renderRebound(stocks) {
       belowMA200.length + ' total sit below MA200, but ' + skippedWeakRR + ' were filtered out for R:R under ' + MIN_RR + '. ' +
       skippedNoTarget + ' are already above MA200 (nothing to reclaim). ' +
       (skippedNoData ? skippedNoData + ' skipped (insufficient bars for MA200/ATR).' : '') +
-      ' Feasibility is a distance-vs-volatility heuristic, not a probability - it ignores trend direction.';
+      ' Feasibility checks whether the required move is mathematically reasonable given this stock\'s own volatility - not whether it is likely to happen, and it ignores trend direction entirely. Conviction (below) scores the reversal evidence that Feasibility cannot see.';
   }
 
   el.innerHTML = rows.length ? rows.map(row => {
@@ -963,8 +1034,10 @@ function renderRebound(stocks) {
       '<td>' + fmtPrice(row.stop) + (r.tightStop ? ' <span title="Swing low was tighter than 0.5x ATR - floored to avoid an inflated R:R" style="color:#92400e">*</span>' : '') + '</td>' +
       '<td>' + rrBadge(row.rr) + '</td>' +
       '<td>' + feasBadge(row.feas) + '</td>' +
-      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td></tr>';
-  }).join('') : '<tr><td colspan="8" class="empty">No stocks below MA200 currently clear an R:R of ' + MIN_RR + '+.</td></tr>';
+      '<td>' + scoreBadge(row.conviction) + '</td>' +
+      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td>' +
+      '<td>' + fmtEarnings(row.earnings) + '</td></tr>';
+  }).join('') : '<tr><td colspan="10" class="empty">No stocks below MA200 currently clear an R:R of ' + MIN_RR + '+.</td></tr>';
 }
 function setReboundSort(col) {
   if (reboundSortCol === col) reboundSortDir = -reboundSortDir; else { reboundSortCol = col; reboundSortDir = col === 'sym' ? 1 : -1; }
@@ -972,7 +1045,8 @@ function setReboundSort(col) {
 }
 const REBOUND_MA50_COLS = [
   ['sym','Ticker'], ['price','Price'], ['ma','MA50'], ['dist','Distance'],
-  ['stop','Stop (12D low)'], ['rr','R:R'], ['feas','Feasibility'], ['target','Analyst Target']
+  ['stop','Stop (12D low)'], ['rr','R:R'], ['feas','Feasibility'], ['conviction','Conviction'],
+  ['target','Analyst Target'], ['earnings','Next Earnings']
 ];
 function renderReboundMA50(stocks) {
   const el = document.getElementById('reboundMA50Body');
@@ -995,7 +1069,8 @@ function renderReboundMA50(stocks) {
     const d = data[t], r = data[t].reboundMA50, f = fund[t] || {};
     const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
     return { sym: t, price: d.price, ma: r.target, dist: pct(r.target, d.price), stop: r.swingLow,
-             rr: r.rr, feas: r.feasibility, target: targetUpside, _r: r };
+             rr: r.rr, feas: r.feasibility, conviction: d.reboundConviction, target: targetUpside,
+             earnings: f.nextEarnings, _r: r };
   });
   rows.sort((a, b) => {
     const x = a[reboundMA50SortCol], y = b[reboundMA50SortCol];
@@ -1009,7 +1084,7 @@ function renderReboundMA50(stocks) {
       confirmed.length + ' total meet the trend confirmation, but ' + skippedWeakRR + ' were filtered out for R:R under ' + MIN_RR_MA50 + '. ' +
       skippedNotConfirmed + ' do not meet the confirmation (below MA200, MA20 not above MA50, or already above MA50). ' +
       (skippedNoData ? skippedNoData + ' skipped (insufficient bars for MA20/50/200/ATR).' : '') +
-      ' Feasibility is a distance-vs-volatility heuristic, not a probability.';
+      ' Feasibility checks whether the required move is mathematically reasonable given this stock\'s own volatility - not whether it is likely to happen. Conviction (below) scores the reversal evidence that Feasibility cannot see.';
   }
 
   el.innerHTML = rows.length ? rows.map(row => {
@@ -1021,8 +1096,10 @@ function renderReboundMA50(stocks) {
       '<td>' + fmtPrice(row.stop) + (r.tightStop ? ' <span title="Swing low was tighter than 0.5x ATR - floored to avoid an inflated R:R" style="color:#92400e">*</span>' : '') + '</td>' +
       '<td>' + rrBadge(row.rr) + '</td>' +
       '<td>' + feasBadge(row.feas) + '</td>' +
-      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td></tr>';
-  }).join('') : '<tr><td colspan="8" class="empty">No trend-confirmed (MA200 reclaimed, MA20>MA50) stocks currently clear an R:R of ' + MIN_RR_MA50 + '+ to MA50.</td></tr>';
+      '<td>' + scoreBadge(row.conviction) + '</td>' +
+      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td>' +
+      '<td>' + fmtEarnings(row.earnings) + '</td></tr>';
+  }).join('') : '<tr><td colspan="10" class="empty">No trend-confirmed (MA200 reclaimed, MA20>MA50) stocks currently clear an R:R of ' + MIN_RR_MA50 + '+ to MA50.</td></tr>';
 }
 function setReboundMA50Sort(col) {
   if (reboundMA50SortCol === col) reboundMA50SortDir = -reboundMA50SortDir; else { reboundMA50SortCol = col; reboundMA50SortDir = col === 'sym' ? 1 : -1; }
@@ -1126,7 +1203,8 @@ async function loadData() {
         data[sym].cross = computeCrossStatus(entry.bars);
       }
       fund[sym] = { name: entry.name, sector: entry.sector, industry: entry.industry, mcap: entry.mcap, beta: entry.beta,
-                    targetMean: entry.targetMean, targetHigh: entry.targetHigh, targetLow: entry.targetLow, numAnalysts: entry.numAnalysts };
+                    targetMean: entry.targetMean, targetHigh: entry.targetHigh, targetLow: entry.targetLow, numAnalysts: entry.numAnalysts,
+                    nextEarnings: entry.nextEarnings || null };
     }
   } catch (e) {
     document.getElementById('cards').innerHTML = '<div class="empty">Could not load data.json — ' + esc(e.message) + '</div>';
