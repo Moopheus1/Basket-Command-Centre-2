@@ -342,7 +342,7 @@ function computeMetrics(rawBars) {
   const atr = atr14();
   // ATR 5 days ago for trend
   let atrPrev = null;
-  if (bars.length >= 19) {
+  if (bars.length >= 20) {
     let sum = 0;
     for (let i = bars.length - 19; i < bars.length - 5; i++) {
       const tr = Math.max(bars[i].high - bars[i].low, Math.abs(bars[i].high - bars[i-1].close), Math.abs(bars[i].low - bars[i-1].close));
@@ -1029,7 +1029,7 @@ function setReboundMA50Sort(col) {
   render();
 }
 
-const CROSS_COLS = [['sym','Ticker'],['price','Price'],['ma50','MA50'],['ma200','MA200'],['gap','Gap %'],['ord','Status']];
+const CROSS_COLS = [['sym','Ticker'],['price','Price'],['ma50','MA50'],['ma200','MA200'],['gap','Gap %'],['ord','Status'],['target','Analyst Target']];
 
 function renderCrossTable(stocks, kind, theadId, bodyId, captionId, sortCol, sortDir, setterName) {
   const el = document.getElementById(bodyId);
@@ -1046,10 +1046,11 @@ function renderCrossTable(stocks, kind, theadId, bodyId, captionId, sortCol, sor
   const noHistory = stocks.filter(t => data[t] && !data[t].error && data[t].cross === null).length;
 
   const rows = inZone.map(t => {
-    const d = data[t], c = d.cross;
+    const d = data[t], c = d.cross, f = fund[t] || {};
+    const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
     // ord: confirmed crosses sort by recency (0 = today), approaching sort after them by gap size
     return { sym: t, price: d.price, ma50: c.ma50, ma200: c.ma200, gap: c.gapPct,
-             ord: c.status === 'crossed' ? c.barsAgo : 100 + Math.abs(c.gapPct), _c: c };
+             ord: c.status === 'crossed' ? c.barsAgo : 100 + Math.abs(c.gapPct), target: targetUpside, _c: c };
   });
   rows.sort((a, b) => {
     const x = a[sortCol], y = b[sortCol];
@@ -1079,8 +1080,9 @@ function renderCrossTable(stocks, kind, theadId, bodyId, captionId, sortCol, sor
       '<td>' + fmtPrice(row.ma50) + '</td>' +
       '<td>' + fmtPrice(row.ma200) + '</td>' +
       '<td>' + pctHtml(row.gap, {arrow:false, sign:true, dp:2}) + '</td>' +
-      '<td>' + statusHtml + '</td></tr>';
-  }).join('') : '<tr><td colspan="6" class="empty">No stocks currently in the ' + label + ' cross zone (no MA50/MA200 cross in the last ' + CROSS_LOOKBACK + ' sessions, none approaching within ' + CROSS_APPROACH_GAP + '%).</td></tr>';
+      '<td>' + statusHtml + '</td>' +
+      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="empty">No stocks currently in the ' + label + ' cross zone (no MA50/MA200 cross in the last ' + CROSS_LOOKBACK + ' sessions, none approaching within ' + CROSS_APPROACH_GAP + '%).</td></tr>';
 }
 
 function renderGoldenCross(stocks) {
