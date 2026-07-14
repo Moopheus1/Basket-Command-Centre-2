@@ -1,4 +1,4 @@
-# Basket Command Center — self-hosted stock dashboard
+# Basket Command Center 2 — self-hosted stock dashboard
 
 A static dashboard (watchlist cards, detailed ticker cards, performance table) that updates
 itself with end-of-day market data via GitHub Actions. No API keys, no server, no cost.
