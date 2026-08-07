@@ -202,8 +202,8 @@
 <script>
 'use strict';
 const LS_HIDDEN = 'basket-hidden-tickers-v1';
-const BENCHMARKS = new Set(["SPY","QQQ","IWM"]);
-const PINNED = new Set(["SPY"]);
+const BENCHMARKS = new Set(["SPY","QQQ","IWM","VOO"]);
+const PINNED = new Set(["SPY","VOO"]);
 
 let allTickers = [];   // from data.json, in file order
 let hidden = loadHidden();
@@ -503,7 +503,7 @@ function render() {
     (asOf ? ' Prices as of ' + asOf.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'}) + ' close.' : '') +
     (asofStr ? ' Data refreshed ' + new Date(asofStr).toLocaleString() + '.' : ' Data refreshed automatically.');
 
-  document.getElementById('benchChips').innerHTML = ['SPY','QQQ','IWM']
+  document.getElementById('benchChips').innerHTML = ['SPY','QQQ','IWM','VOO']
     .filter(b => tickers.includes(b))
     .map(b => {
       const d = data[b];
