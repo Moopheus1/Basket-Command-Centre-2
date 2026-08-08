@@ -204,6 +204,7 @@
 const LS_HIDDEN = 'basket-hidden-tickers-v1';
 const BENCHMARKS = new Set(["SPY","QQQ","IWM","VOO"]);
 const PINNED = new Set(["SPY","VOO"]);
+const ETF_TICKERS = new Set(["EWY","LYTE","FOTO","NCLD","AIPO","DRAM","POWR","SMH"]);
 
 let allTickers = [];   // from data.json, in file order
 let hidden = loadHidden();
@@ -587,7 +588,7 @@ function render() {
              '<div class="vs"><span>vs SPY</span>' + (vsSpy == null ? '—' : pctHtml(vsSpy, {sign:true, arrow:false})) + '</div>';
     }
     return '<div class="card' + (isB ? ' benchmark' : '') + '">' +
-      rm + '<div class="tick"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer">' + t + '</a>' + (isB ? ' <span class="etf">BENCH</span>' : '') + '</div>' + body + '</div>';
+      rm + '<div class="tick"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer">' + t + '</a>' + (isB ? ' <span class="etf">BENCH</span>' : (ETF_TICKERS.has(t) ? ' <span class="etf">ETF</span>' : '')) + '</div>' + body + '</div>';
   }).join('') : '<div class="empty">No data yet. Run the "Update market data" workflow in GitHub Actions once, then reload.</div>';
 
   renderDetailed(spy, tickers);
@@ -882,7 +883,7 @@ function renderDetailed(spy, tickers) {
       '<div class="dcard">' + rm +
       '<div class="dcard-head">' +
         '<span class="logo" style="background:' + logoColor(t) + '">' + esc(t.slice(0, 2)) + '</span>' +
-        '<div class="idblock"><div class="tk"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer">' + esc(t) + '</a></div><div class="ind" title="' + esc(f.name || '') + '">' +
+        '<div class="idblock"><div class="tk"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer">' + esc(t) + '</a>' + (ETF_TICKERS.has(t) ? ' <span class="etf">ETF</span>' : '') + '</div><div class="ind" title="' + esc(f.name || '') + '">' +
           esc(f.industry || f.name || '') + '</div></div>' +
         '<div class="pxblock">' + (d && !d.error ? '<div class="px">' + fmtPrice(d.price) + '</div><div class="dchg">' + pctHtml(d.daily, {dp:2}) + '</div>' : '') + '</div>' +
       '</div>' + body + '</div>';
@@ -954,7 +955,7 @@ function renderTable(spy, tickers) {
   ).join('');
 
   document.getElementById('tbody').innerHTML = rows.map(r =>
-    '<tr><td><a class="tklink" href="' + rallyLink(r.sym) + '" target="_blank" rel="noopener noreferrer">' + r.sym + '</a>' + (BENCHMARKS.has(r.sym) ? '<span class="bench-badge">Benchmark</span>' : '') + '</td>' +
+    '<tr><td><a class="tklink" href="' + rallyLink(r.sym) + '" target="_blank" rel="noopener noreferrer">' + r.sym + '</a>' + (BENCHMARKS.has(r.sym) ? '<span class="bench-badge">Benchmark</span>' : (ETF_TICKERS.has(r.sym) ? '<span class="bench-badge">ETF</span>' : '')) + '</td>' +
     '<td>' + fmtPrice(r.price) + '</td>' +
     '<td>' + pctHtml(r.daily, {dp:2}) + '</td>' +
     '<td>' + pctHtml(r.wtd) + '</td>' +
