@@ -99,7 +99,7 @@
   td:first-child { text-align: left; font-weight: 700; }
   .bench-badge { font-size: 13px; background: #e5e7eb; color: #4b5563; border-radius: 5px; padding: 1px 7px; margin-left: 6px; font-weight: 600; }
   .empty { text-align: center; padding: 40px 16px; color: #6b7280; font-size: 13px; }
-  .nowrap-pill { white-space: normal; overflow-wrap: break-word; display: inline-block; max-width: 100%; margin: 0 6px 4px 0; font-size: clamp(7px, 0.75vw, 13px); }
+  .nowrap-pill { white-space: normal; overflow-wrap: break-word; display: inline-block; max-width: 100%; margin: 0 6px 4px 0; font-size: clamp(9px, 0.85vw, 15px); }
   .mover-pill { white-space: normal; overflow-wrap: break-word; display: inline-block; max-width: 100%; margin: 0 6px 4px 0; font-size: clamp(9px, 0.9vw, 16px); }
   .tklink { color: inherit; text-decoration: none; }
   .tklink:hover { text-decoration: underline; }
@@ -501,16 +501,20 @@ function statCardTrio(a, b, c) {
 // resized headline text had a measurement bug: this one doesn't touch that.
 function fitPillLinesToCard() {
   const MAX_FONT = 28;
+  const ABSOLUTE_MIN_FONT = 7; // hard floor if even the CSS base size overflows a narrow column
   document.querySelectorAll('#stats .nowrap-pill, #stats .mover-pill').forEach(pill => {
     const card = pill.closest('.stat');
     if (!card) return;
     const style = getComputedStyle(card);
     const avail = card.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
     pill.style.fontSize = '';
-    const floor = Math.ceil(parseFloat(getComputedStyle(pill).fontSize));
+    const cssFloor = Math.ceil(parseFloat(getComputedStyle(pill).fontSize));
     const prevWhiteSpace = pill.style.whiteSpace;
     pill.style.whiteSpace = 'nowrap';
-    let lo = floor, hi = Math.max(floor, MAX_FONT), best = floor;
+    // Search down from the CSS floor too, not just up from it - a raised
+    // baseline plus a narrowed column can otherwise overflow with nothing
+    // to catch it, the same failure mode as an earlier version of this.
+    let lo = Math.min(ABSOLUTE_MIN_FONT, cssFloor), hi = Math.max(cssFloor, MAX_FONT), best = lo;
     while (lo <= hi) {
       const mid = Math.floor((lo + hi) / 2);
       pill.style.fontSize = mid + 'px';
@@ -696,7 +700,7 @@ function renderRotationCandidates(stocks) {
     const candidate = n >= 2 && (isGolden || isBreakout) && rsiOk;
     let setup = isGolden && isBreakout ? 'GOLDEN CROSS + BREAKOUT' : isGolden ? 'GOLDEN CROSS' : isBreakout ? 'BREAKOUT WATCH' : '—';
     return { sector, n, pctGolden, pctBreakout, pctNeutralRsi, rsiKnownCount, setup, candidate, top, bottom, score: (pctGolden + pctBreakout) / 2 };
-  }).sort((a, b) => (b.candidate - a.candidate) || (b.score - a.score));
+  }).sort((a, b) => a.sector.localeCompare(b.sector));
 
   document.getElementById('rotationTheadRow').innerHTML =
     '<th>Sector</th><th>Stocks</th><th>Golden cross</th><th>Near 52W high</th><th>RSI 40&ndash;65</th><th>Setup</th><th>Candidate</th><th>Top mover</th><th>Bottom mover</th>';
@@ -705,9 +709,19 @@ function renderRotationCandidates(stocks) {
     if (!t) return '—';
     return '<a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b></a> ' + pctHtml(data[t].daily, {sign: true, dp: 1});
   }
+  // Yahoo Finance's sector dashboards use the exact same sector names your
+  // data.json already carries (both come from the same underlying source),
+  // just lowercased with hyphens - verified against finance.yahoo.com/sectors/
+  // directly rather than assumed. 'Unknown' (missing sector data) is left
+  // unlinked rather than pointed at a guessed URL.
+  function sectorCell(sector) {
+    if (!sector || sector === 'Unknown') return esc(sector || 'Unknown');
+    const slug = sector.toLowerCase().trim().replace(/\s+/g, '-');
+    return '<a class="tklink" href="https://finance.yahoo.com/sectors/' + encodeURIComponent(slug) + '/" target="_blank" rel="noopener noreferrer"><b>' + esc(sector) + '</b></a>';
+  }
 
   document.getElementById('rotationBody').innerHTML = rows.length ? rows.map(r =>
-    '<tr' + (r.candidate ? ' style="background:#f0fdf4"' : '') + '><td>' + esc(r.sector) + '</td>' +
+    '<tr' + (r.candidate ? ' style="background:#f0fdf4"' : '') + '><td style="text-align:left">' + sectorCell(r.sector) + '</td>' +
     '<td>' + r.n + '</td>' +
     '<td>' + r.pctGolden.toFixed(0) + '%</td>' +
     '<td>' + r.pctBreakout.toFixed(0) + '%</td>' +
