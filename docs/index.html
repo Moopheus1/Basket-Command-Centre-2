@@ -26,7 +26,7 @@
   .chip { background: #fff; border: 1px solid #e5e7eb; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .up { color: #0a9e5c; } .down { color: #e5484d; } .flat { color: #6b7280; }
   .statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
-  .stat { background: #fff; border: 1px solid #e9eaee; border-radius: 14px; padding: 14px 16px; }
+  .stat { background: #fff; border: 1px solid #e9eaee; border-radius: 14px; padding: 14px 16px; min-width: 0; overflow-wrap: break-word; }
   .stat .label { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
   .stat .big { font-size: 20px; font-weight: 700; }
   .stat .small { font-size: 12px; color: #6b7280; margin-top: 4px; }
@@ -87,8 +87,8 @@
   td:first-child { text-align: left; font-weight: 700; }
   .bench-badge { font-size: 13px; background: #e5e7eb; color: #4b5563; border-radius: 5px; padding: 1px 7px; margin-left: 6px; font-weight: 600; }
   .empty { text-align: center; padding: 40px 16px; color: #6b7280; font-size: 13px; }
-  .nowrap-pill { white-space: nowrap; display: inline-block; margin: 0 10px 4px 0; font-size: 13px; }
-  .mover-pill { white-space: nowrap; display: inline-block; margin: 0 10px 4px 0; font-size: 14px; }
+  .nowrap-pill { white-space: nowrap; display: inline-block; max-width: 100%; margin: 0 10px 4px 0; font-size: 13px; }
+  .mover-pill { white-space: nowrap; display: inline-block; max-width: 100%; margin: 0 10px 4px 0; font-size: 14px; }
   .tklink { color: inherit; text-decoration: none; }
   .tklink:hover { text-decoration: underline; }
 </style>
@@ -469,6 +469,31 @@ function statCardTrio(a, b, c) {
   return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + a + b +
     '<div style="grid-column:1 / -1">' + c + '</div></div>';
 }
+// Shrinks each ticker pill's own font-size, individually, until it fits on one line
+// inside its stat card (nowrap is kept in CSS - this is what makes that safe).
+// Floor is 8px; below that we let it wrap rather than go illegible.
+function fitPillsOneLine() {
+  const MIN_FONT = 8;
+  document.querySelectorAll('#stats .nowrap-pill, #stats .mover-pill').forEach(pill => {
+    const card = pill.closest('.stat');
+    if (!card) return;
+    const style = getComputedStyle(card);
+    const avail = card.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    pill.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(pill).fontSize);
+    let guard = 0;
+    while (pill.scrollWidth > avail && size > MIN_FONT && guard < 40) {
+      size -= 0.5;
+      pill.style.fontSize = size + 'px';
+      guard++;
+    }
+  });
+}
+let fitPillsResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(fitPillsResizeTimer);
+  fitPillsResizeTimer = setTimeout(fitPillsOneLine, 150);
+});
 
 function sparkSvg(closes) {
   if (!closes || closes.length < 2) return '';
@@ -574,6 +599,7 @@ function render() {
       '</div>';
   }
   document.getElementById('stats').innerHTML = statsHtml;
+  fitPillsOneLine();
 
   document.getElementById('cards').innerHTML = tickers.length ? tickers.map(t => {
     const d = data[t];
