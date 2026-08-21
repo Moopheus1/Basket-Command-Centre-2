@@ -87,6 +87,7 @@
   td:first-child { text-align: left; font-weight: 700; }
   .bench-badge { font-size: 13px; background: #e5e7eb; color: #4b5563; border-radius: 5px; padding: 1px 7px; margin-left: 6px; font-weight: 600; }
   .empty { text-align: center; padding: 40px 16px; color: #6b7280; font-size: 13px; }
+  .oneline-fit { white-space: nowrap; display: inline-block; max-width: 100%; }
   .nowrap-pill { white-space: nowrap; display: inline-block; max-width: 100%; margin: 0 10px 4px 0; font-size: 13px; }
   .mover-pill { white-space: nowrap; display: inline-block; max-width: 100%; margin: 0 10px 4px 0; font-size: 14px; }
   .tklink { color: inherit; text-decoration: none; }
@@ -466,7 +467,7 @@ function statCardPair(a, b) {
   return '<div style="display:flex;flex-direction:column;gap:10px">' + a + b + '</div>';
 }
 function statCardTrio(a, b, c) {
-  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + a + b +
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">' + a + b +
     '<div style="grid-column:1 / -1">' + c + '</div></div>';
 }
 // Shrinks each ticker pill's own font-size, individually, until it fits on one line
@@ -474,7 +475,7 @@ function statCardTrio(a, b, c) {
 // Floor is 8px; below that we let it wrap rather than go illegible.
 function fitPillsOneLine() {
   const MIN_FONT = 8;
-  document.querySelectorAll('#stats .nowrap-pill, #stats .mover-pill').forEach(pill => {
+  document.querySelectorAll('#stats .nowrap-pill, #stats .mover-pill, #stats .oneline-fit').forEach(pill => {
     const card = pill.closest('.stat');
     if (!card) return;
     const style = getComputedStyle(card);
@@ -573,26 +574,26 @@ function render() {
 
     // Best setups (combined signal, top 3 by rank, displayed alphabetically)
     const setups = [...stocks].sort((a, b) => (data[b].combinedRank || 0) - (data[a].combinedRank || 0)).slice(0, 3);
-    const setupHtml = [...setups].sort((a, b) => a.localeCompare(b)).map(t => '<span class="nowrap-pill"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b></a> ' + signalBadge(data[t].signal) + '</span>').join(' ');
+    const setupHtml = [...setups].sort((a, b) => a.localeCompare(b)).map(t => '<span class="nowrap-pill"><a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b></a> ' + signalBadge(data[t].signal) + '</span>').join('<br>');
 
     statsHtml =
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:10px">' +
       statCardTrio(
-        statCard('Best daily move', '<a class="tklink" href="' + rallyLink(best) + '" target="_blank" rel="noopener noreferrer"><b>' + best + '</b></a> ' + pctHtml(data[best].daily, {dp:2}), fmtPrice(data[best].price)),
-        statCard('Weakest daily move', '<a class="tklink" href="' + rallyLink(worst) + '" target="_blank" rel="noopener noreferrer"><b>' + worst + '</b></a> ' + pctHtml(data[worst].daily, {dp:2}), fmtPrice(data[worst].price)),
+        statCard('Best daily move', '<span class="oneline-fit"><a class="tklink" href="' + rallyLink(best) + '" target="_blank" rel="noopener noreferrer"><b>' + best + '</b></a></span><br><span class="oneline-fit">' + pctHtml(data[best].daily, {dp:2}) + '</span>', fmtPrice(data[best].price)),
+        statCard('Weakest daily move', '<span class="oneline-fit"><a class="tklink" href="' + rallyLink(worst) + '" target="_blank" rel="noopener noreferrer"><b>' + worst + '</b></a></span><br><span class="oneline-fit">' + pctHtml(data[worst].daily, {dp:2}) + '</span>', fmtPrice(data[worst].price)),
         statCard('Basket daily return', pctHtml(avg, {dp:2}), spy ? 'vs SPY ' + pctHtml(avg - spy.daily, {sign:true, arrow:false, dp:2}) : '')
       ) +
       statCard('Daily Big Movers (±3%'+')', '<span class="big">' + movers.length + '</span>', moverNames) +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:10px">' +
       statCardTrio(
-        statCard('Best weekly move', '<a class="tklink" href="' + rallyLink(wkBest) + '" target="_blank" rel="noopener noreferrer"><b>' + wkBest + '</b></a> ' + pctHtml(data[wkBest].wtd, {dp:2}), fmtPrice(data[wkBest].price)),
-        statCard('Weakest weekly move', '<a class="tklink" href="' + rallyLink(wkWorst) + '" target="_blank" rel="noopener noreferrer"><b>' + wkWorst + '</b></a> ' + pctHtml(data[wkWorst].wtd, {dp:2}), fmtPrice(data[wkWorst].price)),
+        statCard('Best weekly move', '<span class="oneline-fit"><a class="tklink" href="' + rallyLink(wkBest) + '" target="_blank" rel="noopener noreferrer"><b>' + wkBest + '</b></a></span><br><span class="oneline-fit">' + pctHtml(data[wkBest].wtd, {dp:2}) + '</span>', fmtPrice(data[wkBest].price)),
+        statCard('Weakest weekly move', '<span class="oneline-fit"><a class="tklink" href="' + rallyLink(wkWorst) + '" target="_blank" rel="noopener noreferrer"><b>' + wkWorst + '</b></a></span><br><span class="oneline-fit">' + pctHtml(data[wkWorst].wtd, {dp:2}) + '</span>', fmtPrice(data[wkWorst].price)),
         statCard('Basket weekly return', pctHtml(wkAvg, {dp:2}), spy ? 'vs SPY ' + pctHtml(wkAvg - spy.wtd, {sign:true, arrow:false, dp:2}) : '')
       ) +
       statCard('Weekly Big Movers (±8%'+')', '<span class="big">' + wkMovers.length + '</span>', wkMoverNames) +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">' +
       statCard('Momentum leaders', '<span class="big">Top 5</span>', momHtml) +
       statCard('Persistence leaders', '<span class="big">Top 5</span>', perHtml) +
       statCard('Best setups (combined)', '<span class="big">Top 3</span>', setupHtml) +
@@ -637,7 +638,7 @@ function signalBadge(signal) {
     'WATCH': '#8b5cf6', 'AVOID': '#9ca3af', 'SELL': '#e5484d'
   };
   const c = colors[signal] || '#6b7280';
-  return '<span style="color:' + c + ';font-weight:700;font-size:11px">' + (signal || '—') + '</span>';
+  return '<span style="color:' + c + ';font-weight:700">' + (signal || '—') + '</span>';
 }
 
 function combinedSignal(mom, per) {
