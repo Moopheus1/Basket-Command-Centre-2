@@ -39,7 +39,7 @@
      narrowed to give that space back, still exactly 7 columns, one row. */
   .statgrid { display: grid; grid-template-columns: 1fr 1.4fr 1fr 1.4fr 0.75fr 0.75fr 1fr; gap: clamp(4px, 0.6vw, 12px); margin: 16px 0; align-items: start; }
   .stat { background: #fff; border: 1px solid #e9eaee; border-radius: 14px; padding: clamp(6px, 1vw, 14px) clamp(6px, 1.1vw, 16px); min-width: 0; overflow-wrap: break-word; }
-  .stat .label { font-size: clamp(10px, 1.05vw, 14px); color: #6b7280; margin-bottom: clamp(3px, 0.6vw, 8px); line-height: 1.25; }
+  .stat .label { font-size: clamp(11px, 1vw, 14px); color: #6b7280; margin-bottom: clamp(3px, 0.6vw, 8px); line-height: 1.25; }
   .stat .big { font-size: clamp(11px, 1.5vw, 20px); font-weight: 700; line-height: 1.2; }
   .stat .small { font-size: clamp(7px, 0.75vw, 12px); color: #6b7280; margin-top: clamp(2px, 0.4vw, 4px); line-height: 1.25; }
   .panel { background: #fff; border: 1px solid #e9eaee; border-radius: 16px; padding: 16px; margin-bottom: 16px; }
@@ -500,7 +500,7 @@ function statCardTrio(a, b, c) {
 // Scoped to just these two classes deliberately: a prior version that also
 // resized headline text had a measurement bug: this one doesn't touch that.
 function fitPillLinesToCard() {
-  const MAX_FONT = 22; // cap growth so single-line fitting doesn't balloon tickers oversized when a column has spare width
+  const MAX_FONT = 20; // cap growth so single-line fitting doesn't balloon tickers oversized when a column has spare width
   const ABSOLUTE_MIN_FONT = 7; // hard floor if even the CSS base size overflows a narrow column
   document.querySelectorAll('#stats .nowrap-pill, #stats .mover-pill').forEach(pill => {
     const card = pill.closest('.stat');
