@@ -107,6 +107,7 @@
 
 <div class="jumpbar">
   <a href="#sectorPanel">↓ Sector flow</a>
+  <a href="#rotationPanel">↓ Rotation candidates</a>
   <a href="#reboundPanel">↓ Rebound MA200</a>
   <a href="#uptrendPanel">↓ Uptrend MA50</a>
   <a href="#goldenPanel">↓ Golden cross</a>
@@ -126,6 +127,17 @@
     <table>
       <thead><tr id="sectorTheadRow"></tr></thead>
       <tbody id="sectorBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel" id="rotationPanel">
+  <h2>Rotation candidates</h2>
+  <div class="desc">This is a structural filter, not a validated signal — see the caveat on Sector flow above; the same limits apply here. It narrows sectors down to two setups: GOLDEN CROSS (MA50 crossed above MA200 recently, or is converging toward it) and BREAKOUT WATCH (within 10% of the 52-week high). A sector only qualifies if at least 30% of its tracked stocks meet one of those AND at least 50% have RSI between 40&ndash;65 — that RSI band is the "not overly bullish, not overly bearish" filter: above it you risk buying an extended move (exit liquidity for whoever got in first), below it there's no confirmed reversal yet. Nothing here has been backtested against forward returns — it tells you what currently matches the setup you described, not what will happen next.</div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr id="rotationTheadRow"></tr></thead>
+      <tbody id="rotationBody"></tbody>
     </table>
   </div>
 </div>
@@ -663,6 +675,7 @@ function render() {
   renderDetailed(spy, tickers);
   renderTable(spy, tickers);
   renderSectorFlow(stocks);
+  renderRotationCandidates(stocks);
   renderRebound(stocks);
   renderReboundMA50(stocks);
   renderGoldenCross(stocks);
@@ -747,6 +760,61 @@ function renderSectorFlow(stocks) {
     '<td><span style="color:' + flowColor[r.flow] + ';font-weight:700">' + r.flow + '</span></td>' +
     '<td style="text-align:left">' + (r.top ? '<a class="tklink" href="' + rallyLink(r.top) + '" target="_blank" rel="noopener noreferrer"><b>' + r.top + '</b></a> ' + pctHtml(data[r.top].daily, {sign: true, dp: 1}) : '—') + '</td></tr>'
   ).join('') : '<tr><td colspan="8" style="text-align:center;color:#6b7280">No sector data available.</td></tr>';
+}
+
+// Structural filter, not a validated signal (see rotationPanel .desc for the
+// full caveat). GOLDEN_CROSS_MIN_PCT / BREAKOUT_MIN_PCT / NEUTRAL_RSI_MIN_PCT
+// are the "how much of the sector has to show this" gates; the breakout
+// distance and RSI band are set by ROTATION_BREAKOUT_MAX_OFF_HIGH and
+// ROTATION_RSI_MIN/MAX below.
+const ROTATION_BREAKOUT_MAX_OFF_HIGH = -10; // within 10% of the 52-week high
+const ROTATION_RSI_MIN = 40, ROTATION_RSI_MAX = 65;
+const GOLDEN_CROSS_MIN_PCT = 30, BREAKOUT_MIN_PCT = 30, NEUTRAL_RSI_MIN_PCT = 50;
+function renderRotationCandidates(stocks) {
+  const groups = {};
+  for (const t of stocks) {
+    const d = data[t];
+    if (!d || d.error) continue;
+    const sector = (fund[t] && fund[t].sector) || 'Unknown';
+    (groups[sector] = groups[sector] || []).push(t);
+  }
+
+  const rows = Object.keys(groups).map(sector => {
+    const list = groups[sector];
+    const n = list.length;
+    let goldenCount = 0, breakoutCount = 0, rsiCount = 0, rsiKnownCount = 0;
+    for (const t of list) {
+      const d = data[t];
+      if (d.cross && d.cross.type === 'golden') goldenCount++;
+      if (d.offHigh != null && d.offHigh >= ROTATION_BREAKOUT_MAX_OFF_HIGH) breakoutCount++;
+      if (d.rsi != null) {
+        rsiKnownCount++;
+        if (d.rsi >= ROTATION_RSI_MIN && d.rsi <= ROTATION_RSI_MAX) rsiCount++;
+      }
+    }
+    const pctGolden = (goldenCount / n) * 100;
+    const pctBreakout = (breakoutCount / n) * 100;
+    const pctNeutralRsi = rsiKnownCount ? (rsiCount / rsiKnownCount) * 100 : 0;
+    const isGolden = pctGolden >= GOLDEN_CROSS_MIN_PCT;
+    const isBreakout = pctBreakout >= BREAKOUT_MIN_PCT;
+    const rsiOk = rsiKnownCount > 0 && pctNeutralRsi >= NEUTRAL_RSI_MIN_PCT;
+    const candidate = n >= 2 && (isGolden || isBreakout) && rsiOk;
+    let setup = isGolden && isBreakout ? 'GOLDEN CROSS + BREAKOUT' : isGolden ? 'GOLDEN CROSS' : isBreakout ? 'BREAKOUT WATCH' : '—';
+    return { sector, n, pctGolden, pctBreakout, pctNeutralRsi, rsiKnownCount, setup, candidate, score: (pctGolden + pctBreakout) / 2 };
+  }).sort((a, b) => (b.candidate - a.candidate) || (b.score - a.score));
+
+  document.getElementById('rotationTheadRow').innerHTML =
+    '<th>Sector</th><th>Stocks</th><th>Golden cross</th><th>Near 52W high</th><th>RSI 40&ndash;65</th><th>Setup</th><th>Candidate</th>';
+
+  document.getElementById('rotationBody').innerHTML = rows.length ? rows.map(r =>
+    '<tr' + (r.candidate ? ' style="background:#f0fdf4"' : '') + '><td>' + esc(r.sector) + '</td>' +
+    '<td>' + r.n + '</td>' +
+    '<td>' + r.pctGolden.toFixed(0) + '%</td>' +
+    '<td>' + r.pctBreakout.toFixed(0) + '%</td>' +
+    '<td>' + (r.rsiKnownCount ? r.pctNeutralRsi.toFixed(0) + '%' : '—') + '</td>' +
+    '<td>' + esc(r.setup) + '</td>' +
+    '<td>' + (r.candidate ? '<span class="up" style="font-weight:700">YES</span>' : '<span class="flat">no</span>') + '</td></tr>'
+  ).join('') : '<tr><td colspan="7" style="text-align:center;color:#6b7280">No sector data available.</td></tr>';
 }
 function scoreBadge(score) {
   if (score == null) return '<span style="color:#6b7280">—</span>';
