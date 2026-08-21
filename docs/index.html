@@ -106,7 +106,6 @@
 </div>
 
 <div class="jumpbar">
-  <a href="#sectorPanel">↓ Sector flow</a>
   <a href="#rotationPanel">↓ Rotation candidates</a>
   <a href="#reboundPanel">↓ Rebound MA200</a>
   <a href="#uptrendPanel">↓ Uptrend MA50</a>
@@ -119,21 +118,9 @@
 
 <div class="statgrid" id="stats"></div>
 
-<div class="panel" id="sectorPanel">
-  <h2>Sector flow</h2>
-  <div class="desc">Groups your tracked tickers by sector (from data.json) and looks at three things together: breadth (% of the sector's stocks that are green today), average return, and relative volume (today's volume vs each stock's own 20-day average, then averaged across the sector). A sector is only tagged INFLOW when all three agree — relative volume &ge;1.2&times;, at least 60% of the sector green, and average return meaningfully positive; OUTFLOW is the mirror. A green number alone does not qualify. This describes what already happened today and this week — it is not a forecast, and a sector tagged INFLOW can still reverse tomorrow. Sectors with fewer than 2 tracked stocks are shown but not tagged; not enough sample to mean anything.</div>
-  <div class="statgrid" id="sectorStats" style="margin-bottom:16px"></div>
-  <div style="overflow-x:auto">
-    <table>
-      <thead><tr id="sectorTheadRow"></tr></thead>
-      <tbody id="sectorBody"></tbody>
-    </table>
-  </div>
-</div>
-
 <div class="panel" id="rotationPanel">
   <h2>Rotation candidates</h2>
-  <div class="desc">This is a structural filter, not a validated signal — see the caveat on Sector flow above; the same limits apply here. It narrows sectors down to two setups: GOLDEN CROSS (MA50 crossed above MA200 recently, or is converging toward it) and BREAKOUT WATCH (within 10% of the 52-week high). A sector only qualifies if at least 30% of its tracked stocks meet one of those AND at least 50% have RSI between 40&ndash;65 — that RSI band is the "not overly bullish, not overly bearish" filter: above it you risk buying an extended move (exit liquidity for whoever got in first), below it there's no confirmed reversal yet. Nothing here has been backtested against forward returns — it tells you what currently matches the setup you described, not what will happen next.</div>
+  <div class="desc">Groups your tracked tickers by sector (from data.json) and narrows them to two setups: GOLDEN CROSS (MA50 crossed above MA200 recently, or is converging toward it) and BREAKOUT WATCH (within 10% of the 52-week high). A sector only qualifies as a Candidate if at least 30% of its tracked stocks meet one of those AND at least 50% have RSI between 40&ndash;65 — that RSI band is the "not overly bullish, not overly bearish" filter: above it you risk buying an extended move (exit liquidity for whoever got in first), below it there's no confirmed reversal yet. This is a structural filter, not a validated signal — nothing here has been backtested against forward returns, and your price history (needed for the golden-cross math) only runs about 9-10 months back, not enough to test across a full market cycle. It tells you what currently matches the setup you described, not what will happen next. Sectors with fewer than 2 tracked stocks never qualify — not enough sample to mean anything.</div>
   <div style="overflow-x:auto">
     <table>
       <thead><tr id="rotationTheadRow"></tr></thead>
@@ -491,64 +478,8 @@ function statCardPair(a, b) {
   return '<div style="display:flex;flex-direction:column;gap:10px">' + a + b + '</div>';
 }
 function statCardTrio(a, b, c) {
-  return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">' + a + b +
-    '<div style="grid-column:1 / -1">' + c + '</div></div>';
+  return '<div style="display:flex;flex-direction:column;gap:10px">' + a + b + c + '</div>';
 }
-// Grows each stat card's headline text (ticker/pct/count) up to fill the card's
-// width, instead of sitting small in a wide card. Base size (20px, from CSS) is
-// the floor; it only ever scales UP. Measures the true unwrapped width at each
-// candidate size via a temporary nowrap, so it never grows past what actually
-// fits on one line.
-function fitBigTextToCard() {
-  const MIN_FONT = 20, MAX_FONT = 40;
-  document.querySelectorAll('#stats .stat > .big, #sectorStats .stat > .big').forEach(big => {
-    const card = big.closest('.stat');
-    if (!card) return;
-    const style = getComputedStyle(card);
-    const avail = card.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-    const prevWhiteSpace = big.style.whiteSpace;
-    big.style.whiteSpace = 'nowrap';
-    let lo = MIN_FONT, hi = MAX_FONT, best = MIN_FONT;
-    while (lo <= hi) {
-      const mid = Math.floor((lo + hi) / 2);
-      big.style.fontSize = mid + 'px';
-      if (big.scrollWidth <= avail) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
-    }
-    big.style.fontSize = best + 'px';
-    big.style.whiteSpace = prevWhiteSpace || '';
-  });
-}
-// Same idea as fitBigTextToCard, but for each line in the movers/leaders/setups
-// lists (one ticker+price+pct per line via <br>). Each line grows its own
-// font-size independently to fill the card's width, floor = its CSS base
-// (13px nowrap-pill / 14px mover-pill), cap = 24px so lines stay smaller than
-// the card's headline number.
-function fitPillLinesToCard() {
-  const MAX_FONT = 24;
-  document.querySelectorAll('#stats .nowrap-pill, #stats .mover-pill').forEach(pill => {
-    const card = pill.closest('.stat');
-    if (!card) return;
-    const style = getComputedStyle(card);
-    const avail = card.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-    pill.style.fontSize = '';
-    const floor = Math.round(parseFloat(getComputedStyle(pill).fontSize));
-    const prevWhiteSpace = pill.style.whiteSpace;
-    pill.style.whiteSpace = 'nowrap';
-    let lo = floor, hi = MAX_FONT, best = floor;
-    while (lo <= hi) {
-      const mid = Math.floor((lo + hi) / 2);
-      pill.style.fontSize = mid + 'px';
-      if (pill.scrollWidth <= avail) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
-    }
-    pill.style.fontSize = best + 'px';
-    pill.style.whiteSpace = prevWhiteSpace || '';
-  });
-}
-let fitBigResizeTimer = null;
-window.addEventListener('resize', () => {
-  clearTimeout(fitBigResizeTimer);
-  fitBigResizeTimer = setTimeout(() => { fitBigTextToCard(); fitPillLinesToCard(); }, 150);
-});
 function sparkSvg(closes) {
   if (!closes || closes.length < 2) return '';
   const w = 240, h = 56, pad = 3;
@@ -653,8 +584,6 @@ function render() {
       '</div>';
   }
   document.getElementById('stats').innerHTML = statsHtml;
-  fitBigTextToCard();
-  fitPillLinesToCard();
 
   document.getElementById('cards').innerHTML = tickers.length ? tickers.map(t => {
     const d = data[t];
@@ -674,92 +603,11 @@ function render() {
 
   renderDetailed(spy, tickers);
   renderTable(spy, tickers);
-  renderSectorFlow(stocks);
   renderRotationCandidates(stocks);
   renderRebound(stocks);
   renderReboundMA50(stocks);
   renderGoldenCross(stocks);
   renderDeathCross(stocks);
-}
-
-// Groups tracked stocks by sector and reads breadth (green vs red), average
-// return, and relative volume (today's volume vs each stock's own 20D
-// average) together. A sector is only tagged INFLOW/OUTFLOW when all three
-// agree - see the panel's .desc text for the exact thresholds and the
-// caveat that this is descriptive, not predictive.
-const REL_VOL_FLOW_THRESHOLD = 1.2;
-const BREADTH_INFLOW_PCT = 60;
-const BREADTH_OUTFLOW_PCT = 40;
-const AVG_RETURN_FLOW_THRESHOLD = 0.2; // percentage points
-function renderSectorFlow(stocks) {
-  const groups = {};
-  for (const t of stocks) {
-    const d = data[t];
-    if (!d || d.error || d.daily == null) continue;
-    const sector = (fund[t] && fund[t].sector) || 'Unknown';
-    (groups[sector] = groups[sector] || []).push(t);
-  }
-
-  const rows = Object.keys(groups).map(sector => {
-    const list = groups[sector];
-    const n = list.length;
-    let green = 0, red = 0, flat = 0;
-    let dailySum = 0, weeklySum = 0, weeklyN = 0, relVolSum = 0, relVolN = 0;
-    let top = null;
-    for (const t of list) {
-      const d = data[t];
-      if (d.daily > 0.005) green++; else if (d.daily < -0.005) red++; else flat++;
-      dailySum += d.daily;
-      if (d.wtd != null) { weeklySum += d.wtd; weeklyN++; }
-      if (d.vol != null && d.avgVol) { relVolSum += d.vol / d.avgVol; relVolN++; }
-      if (!top || d.daily > data[top].daily) top = t;
-    }
-    const avgDaily = dailySum / n;
-    const avgWeekly = weeklyN ? weeklySum / weeklyN : null;
-    const avgRelVol = relVolN ? relVolSum / relVolN : null;
-    const breadthPct = (green / n) * 100;
-    let flow = 'n/a';
-    if (n >= 2 && avgRelVol != null) {
-      if (avgRelVol >= REL_VOL_FLOW_THRESHOLD && breadthPct >= BREADTH_INFLOW_PCT && avgDaily > AVG_RETURN_FLOW_THRESHOLD) flow = 'INFLOW';
-      else if (avgRelVol >= REL_VOL_FLOW_THRESHOLD && breadthPct <= BREADTH_OUTFLOW_PCT && avgDaily < -AVG_RETURN_FLOW_THRESHOLD) flow = 'OUTFLOW';
-      else flow = 'NEUTRAL';
-    }
-    return { sector, n, green, red, flat, avgDaily, avgWeekly, avgRelVol, breadthPct, flow, top };
-  }).sort((a, b) => b.avgDaily - a.avgDaily);
-
-  const withSample = rows.filter(r => r.n >= 2);
-  const bullish = withSample.length ? withSample.reduce((a, b) => (b.avgDaily > a.avgDaily ? b : a)) : null;
-  const bearish = withSample.length ? withSample.reduce((a, b) => (b.avgDaily < a.avgDaily ? b : a)) : null;
-  const withRelVol = withSample.filter(r => r.avgRelVol != null);
-  const hiVol = withRelVol.length ? withRelVol.reduce((a, b) => (b.avgRelVol > a.avgRelVol ? b : a)) : null;
-
-  let sectorStatsHtml = '';
-  sectorStatsHtml += statCard('Most bullish sector',
-    bullish ? esc(bullish.sector) + ' ' + pctHtml(bullish.avgDaily, {sign: true, dp: 2}) : '—',
-    bullish ? bullish.green + 'G / ' + bullish.red + 'R of ' + bullish.n : 'Needs at least 2 tracked stocks in a sector');
-  sectorStatsHtml += statCard('Most bearish sector',
-    bearish ? esc(bearish.sector) + ' ' + pctHtml(bearish.avgDaily, {sign: true, dp: 2}) : '—',
-    bearish ? bearish.green + 'G / ' + bearish.red + 'R of ' + bearish.n : '');
-  sectorStatsHtml += statCard('Highest relative volume',
-    hiVol ? esc(hiVol.sector) + ' ' + hiVol.avgRelVol.toFixed(2) + '&times;' : '—',
-    hiVol ? 'vs each stock\'s own 20D avg' : '');
-  document.getElementById('sectorStats').innerHTML = sectorStatsHtml;
-  fitBigTextToCard();
-
-  document.getElementById('sectorTheadRow').innerHTML =
-    '<th>Sector</th><th>Stocks</th><th>Green/Red</th><th>Avg Daily</th><th>Avg Weekly</th><th>Rel Vol</th><th>Flow</th><th>Top mover</th>';
-
-  const flowColor = {INFLOW: '#0a9e5c', OUTFLOW: '#e5484d', NEUTRAL: '#6b7280', 'n/a': '#9ca3af'};
-  document.getElementById('sectorBody').innerHTML = rows.length ? rows.map(r =>
-    '<tr><td>' + esc(r.sector) + '</td>' +
-    '<td>' + r.n + '</td>' +
-    '<td><span class="up">' + r.green + 'G</span> / <span class="down">' + r.red + 'R</span>' + (r.flat ? ' / ' + r.flat + ' flat' : '') + '</td>' +
-    '<td>' + pctHtml(r.avgDaily, {sign: true, dp: 2}) + '</td>' +
-    '<td>' + (r.avgWeekly != null ? pctHtml(r.avgWeekly, {sign: true, dp: 2}) : '—') + '</td>' +
-    '<td>' + (r.avgRelVol != null ? r.avgRelVol.toFixed(2) + '×' : '—') + '</td>' +
-    '<td><span style="color:' + flowColor[r.flow] + ';font-weight:700">' + r.flow + '</span></td>' +
-    '<td style="text-align:left">' + (r.top ? '<a class="tklink" href="' + rallyLink(r.top) + '" target="_blank" rel="noopener noreferrer"><b>' + r.top + '</b></a> ' + pctHtml(data[r.top].daily, {sign: true, dp: 1}) : '—') + '</td></tr>'
-  ).join('') : '<tr><td colspan="8" style="text-align:center;color:#6b7280">No sector data available.</td></tr>';
 }
 
 // Structural filter, not a validated signal (see rotationPanel .desc for the
@@ -783,6 +631,7 @@ function renderRotationCandidates(stocks) {
     const list = groups[sector];
     const n = list.length;
     let goldenCount = 0, breakoutCount = 0, rsiCount = 0, rsiKnownCount = 0;
+    let top = null, bottom = null;
     for (const t of list) {
       const d = data[t];
       if (d.cross && d.cross.type === 'golden') goldenCount++;
@@ -790,6 +639,10 @@ function renderRotationCandidates(stocks) {
       if (d.rsi != null) {
         rsiKnownCount++;
         if (d.rsi >= ROTATION_RSI_MIN && d.rsi <= ROTATION_RSI_MAX) rsiCount++;
+      }
+      if (d.daily != null) {
+        if (!top || d.daily > data[top].daily) top = t;
+        if (!bottom || d.daily < data[bottom].daily) bottom = t;
       }
     }
     const pctGolden = (goldenCount / n) * 100;
@@ -800,11 +653,16 @@ function renderRotationCandidates(stocks) {
     const rsiOk = rsiKnownCount > 0 && pctNeutralRsi >= NEUTRAL_RSI_MIN_PCT;
     const candidate = n >= 2 && (isGolden || isBreakout) && rsiOk;
     let setup = isGolden && isBreakout ? 'GOLDEN CROSS + BREAKOUT' : isGolden ? 'GOLDEN CROSS' : isBreakout ? 'BREAKOUT WATCH' : '—';
-    return { sector, n, pctGolden, pctBreakout, pctNeutralRsi, rsiKnownCount, setup, candidate, score: (pctGolden + pctBreakout) / 2 };
+    return { sector, n, pctGolden, pctBreakout, pctNeutralRsi, rsiKnownCount, setup, candidate, top, bottom, score: (pctGolden + pctBreakout) / 2 };
   }).sort((a, b) => (b.candidate - a.candidate) || (b.score - a.score));
 
   document.getElementById('rotationTheadRow').innerHTML =
-    '<th>Sector</th><th>Stocks</th><th>Golden cross</th><th>Near 52W high</th><th>RSI 40&ndash;65</th><th>Setup</th><th>Candidate</th>';
+    '<th>Sector</th><th>Stocks</th><th>Golden cross</th><th>Near 52W high</th><th>RSI 40&ndash;65</th><th>Setup</th><th>Candidate</th><th>Top mover</th><th>Bottom mover</th>';
+
+  function moverCell(t) {
+    if (!t) return '—';
+    return '<a class="tklink" href="' + rallyLink(t) + '" target="_blank" rel="noopener noreferrer"><b>' + t + '</b></a> ' + pctHtml(data[t].daily, {sign: true, dp: 1});
+  }
 
   document.getElementById('rotationBody').innerHTML = rows.length ? rows.map(r =>
     '<tr' + (r.candidate ? ' style="background:#f0fdf4"' : '') + '><td>' + esc(r.sector) + '</td>' +
@@ -813,8 +671,10 @@ function renderRotationCandidates(stocks) {
     '<td>' + r.pctBreakout.toFixed(0) + '%</td>' +
     '<td>' + (r.rsiKnownCount ? r.pctNeutralRsi.toFixed(0) + '%' : '—') + '</td>' +
     '<td>' + esc(r.setup) + '</td>' +
-    '<td>' + (r.candidate ? '<span class="up" style="font-weight:700">YES</span>' : '<span class="flat">no</span>') + '</td></tr>'
-  ).join('') : '<tr><td colspan="7" style="text-align:center;color:#6b7280">No sector data available.</td></tr>';
+    '<td>' + (r.candidate ? '<span class="up" style="font-weight:700">YES</span>' : '<span class="flat">no</span>') + '</td>' +
+    '<td style="text-align:left">' + moverCell(r.top) + '</td>' +
+    '<td style="text-align:left">' + moverCell(r.bottom) + '</td></tr>'
+  ).join('') : '<tr><td colspan="9" style="text-align:center;color:#6b7280">No sector data available.</td></tr>';
 }
 function scoreBadge(score) {
   if (score == null) return '<span style="color:#6b7280">—</span>';
