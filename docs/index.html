@@ -186,6 +186,7 @@
 </div>
 
 <div class="panel" id="performancePanel">
+  <div id="healthScoreBanner"></div>
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
     <h2>Performance overview</h2>
     <a href="#top" class="jumpbar-inline" style="margin-top:0">↑ Back to top</a>
@@ -235,6 +236,7 @@ let hidden = loadHidden();
 const data = {};       // sym -> metrics or {error}
 const fund = {};       // sym -> {mcap, beta, sector, industry, name}
 let asofStr = null;
+let healthScoreMeta = null;   // {status, successRate, okCount, attempted, consecutiveBadRuns, lastGoodAsof} or null
 let sortCol = 'sig', sortDir = -1;
 let reboundSortCol = 'rr', reboundSortDir = -1;
 let reboundMA50SortCol = 'rr', reboundMA50SortDir = -1;
@@ -575,7 +577,28 @@ function retChip(label, v, maxAbs) {
     '<div class="rbar"><i style="width:' + width.toFixed(0) + '%;background:' + barColor + '"></i></div></div>';
 }
 
+function renderHealthScoreBanner() {
+  const el = document.getElementById('healthScoreBanner');
+  if (!el) return;
+  if (!healthScoreMeta || healthScoreMeta.status === 'ok') { el.innerHTML = ''; return; }
+  const s = healthScoreMeta.status; // 'degraded' or 'down'
+  const bg = s === 'down' ? '#fef2f2' : '#fffbeb';
+  const border = s === 'down' ? '#fecaca' : '#fde68a';
+  const color = s === 'down' ? '#b91c1c' : '#92400e';
+  const rate = healthScoreMeta.successRate != null ? Math.round(healthScoreMeta.successRate * 100) + '%' : 'n/a';
+  const lastGood = healthScoreMeta.lastGoodAsof ? new Date(healthScoreMeta.lastGoodAsof).toLocaleString() : 'never';
+  const label = s === 'down' ? 'Health Score data is DOWN' : 'Health Score data may be stale';
+  el.innerHTML =
+    '<div style="background:' + bg + ';border:1px solid ' + border + ';color:' + color +
+    ';border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.5">' +
+    '<b>⚠ ' + label + '.</b> Equity Lens fetch success rate ' + rate +
+    ' (' + healthScoreMeta.consecutiveBadRuns + ' consecutive bad EOD run(s)). ' +
+    'Last known-good run: ' + lastGood + '. Health Score column values shown may be outdated.' +
+    '</div>';
+}
+
 function render() {
+  renderHealthScoreBanner();
   const tickers = visibleTickers();
   const spy = data['SPY'] && !data['SPY'].error ? data['SPY'] : null;
   const loaded = tickers.filter(t => data[t] && !data[t].error);
@@ -1081,7 +1104,8 @@ function renderDetailed(spy, tickers) {
 const COLS = [
   ['sym', 'Ticker'], ['price', 'Price'], ['daily', 'Daily'], ['wtd', 'WTD'], ['mtd', 'MTD'],
   ['ytd', 'YTD'], ['y1', '1Y'], ['vsSpy', 'vs SPY'], ['mom', 'Momentum'], ['per', 'Persist'], ['sig', 'Signal'],
-  ['target', 'Analyst Target'], ['earnings', 'Next Earnings'], ['mcap', 'Market cap'], ['vol', 'Volume']
+  ['target', 'Analyst Target'], ['earnings', 'Next Earnings'], ['mcap', 'Market cap'], ['vol', 'Volume'],
+  ['health', 'Health Score']
 ];
 function renderTable(spy, tickers) {
   document.getElementById('theadRow').innerHTML = COLS.map(c =>
@@ -1096,7 +1120,7 @@ function renderTable(spy, tickers) {
     return { sym: t, price: d.price, daily: d.daily, wtd: d.wtd, mtd: d.mtd, ytd: d.ytd, y1: d.y1,
              vsSpy: spy ? d.daily - spy.daily : null, mom: d.momScore, per: d.perScore, sig: d.signal,
              target: targetUpside, earnings: f.nextEarnings, f: f,
-             mcap: f.mcap != null ? f.mcap : null, vol: d.vol };
+             mcap: f.mcap != null ? f.mcap : null, vol: d.vol, health: f.healthScore };
   });
   rows.sort((a, b) => {
     const x = a[sortCol], y = b[sortCol];
@@ -1109,7 +1133,7 @@ function renderTable(spy, tickers) {
   });
 
   const extraRows = tickers.filter(t => data[t] && data[t].error).map(t =>
-    '<tr><td>' + t + '</td><td colspan="14" style="text-align:left"><span class="down">no data: ' +
+    '<tr><td>' + t + '</td><td colspan="15" style="text-align:left"><span class="down">no data: ' +
     esc(data[t].error).slice(0, 40) + '</span></td></tr>'
   ).join('');
 
@@ -1128,7 +1152,8 @@ function renderTable(spy, tickers) {
     '<td>' + targetHtml(r.sym, r.f, r.price) + '</td>' +
     '<td>' + fmtEarnings(r.earnings) + '</td>' +
     '<td>' + fmtMcap(r.mcap) + '</td>' +
-    '<td>' + fmtVol(r.vol) + '</td></tr>'
+    '<td>' + fmtVol(r.vol) + '</td>' +
+    '<td>' + scoreBadge(r.health) + (r.f.healthGrade ? ' <span style="color:#9ca3af;font-size:11px">' + r.f.healthGrade + '</span>' : '') + '</td></tr>'
   ).join('') + extraRows;
 }
 function rrBadge(rr) {
@@ -1353,6 +1378,7 @@ async function loadData() {
     const res = await fetch('data.json?t=' + Date.now(), { cache: 'no-store' });
     const j = await res.json();
     asofStr = j.asof;
+    healthScoreMeta = j.healthScoreMeta || null;
     allTickers = Object.keys(j.tickers || {});
     for (const sym of allTickers) {
       const entry = j.tickers[sym];
@@ -1364,7 +1390,9 @@ async function loadData() {
       }
       fund[sym] = { name: entry.name, sector: entry.sector, industry: entry.industry, mcap: entry.mcap, beta: entry.beta,
                     targetMean: entry.targetMean, targetHigh: entry.targetHigh, targetLow: entry.targetLow, numAnalysts: entry.numAnalysts,
-                    nextEarnings: entry.nextEarnings || null };
+                    nextEarnings: entry.nextEarnings || null,
+                    healthScore: entry.healthScore != null ? entry.healthScore : null,
+                    healthGrade: entry.healthGrade || null };
     }
   } catch (e) {
     document.getElementById('cards').innerHTML = '<div class="empty">Could not load data.json — ' + esc(e.message) + '</div>';
