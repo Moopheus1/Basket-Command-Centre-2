@@ -88,9 +88,25 @@ jobs:
           else
             echo "mode=intraday" >> "$GITHUB_OUTPUT"
           fi
+      - name: Determine health-check run
+        id: healthcheck
+        run: |
+          # Health scores (Equity Lens) run on their OWN once-daily
+          # schedule, deliberately separate from FETCH_MODE - they used
+          # to piggyback on the 16:30 ET EOD run, moved to the 4am ET
+          # early-ping cron instead so scores are fresh before the
+          # trading day starts rather than sitting there from the
+          # previous afternoon. Also fires on a manual eod-mode dispatch,
+          # so testing this doesn't require waiting for 4am ET.
+          if [ "${{ github.event.schedule }}" = "0 4 * * 1-5" ] || [ "${{ github.event.inputs.mode }}" = "eod" ]; then
+            echo "healthcheck=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "healthcheck=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Fetch market data
         env:
           FETCH_MODE: ${{ steps.mode.outputs.mode }}
+          HEALTH_CHECK_RUN: ${{ steps.healthcheck.outputs.healthcheck }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: python scripts/fetch_data.py
       - name: Commit updated data
