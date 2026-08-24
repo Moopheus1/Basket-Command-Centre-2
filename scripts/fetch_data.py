@@ -37,6 +37,7 @@ import pandas as pd
 import yfinance as yf
 
 import alerts
+import health_score_monitor
 
 DATA_PATH = "docs/data.json"
 
@@ -134,6 +135,13 @@ def fetch_full(symbol):
         "targetLow": info.get("targetLowPrice"),
         "numAnalysts": info.get("numberOfAnalystOpinions"),
         "nextEarnings": next_earnings,
+        # healthScore/healthGrade are filled in afterward by
+        # health_score_monitor.run(), once per EOD run, as a separate pass
+        # over the whole ticker dict - not fetched here per-ticker, so
+        # that pass can also watch the pipeline for staleness/schema
+        # drift instead of just quietly filling in None on failure.
+        "healthScore": None,
+        "healthGrade": None,
         "bars": bars,
     }
 
@@ -215,6 +223,8 @@ def run_intraday(tickers, existing):
                 "targetLow": prior.get("targetLow"),
                 "numAnalysts": prior.get("numAnalysts"),
                 "nextEarnings": prior.get("nextEarnings"),
+                "healthScore": prior.get("healthScore"),
+                "healthGrade": prior.get("healthGrade"),
                 "bars": merged_bars,
             }
             ok += 1
@@ -237,10 +247,26 @@ def main():
 
     if mode == "intraday" and existing is not None:
         out = run_intraday(tickers, existing)
+        ran_eod = False
     else:
         if mode == "intraday":
             print("[intraday] no existing docs/data.json found — falling back to full eod fetch")
         out = run_eod(tickers)
+        ran_eod = True
+
+    if ran_eod:
+        # Health score fetch + pipeline staleness/schema-drift check -
+        # once/day only, deliberately not part of the 10-min intraday
+        # cadence (see health_score_monitor.py docstring for why).
+        try:
+            out["healthScoreMeta"] = health_score_monitor.run(out["tickers"])
+        except Exception as e:
+            print(f"[health_score] monitor pass failed, tickers keep null scores this run: {e}")
+            out["healthScoreMeta"] = (existing or {}).get("healthScoreMeta")
+    else:
+        # Carry the last EOD run's status forward so the dashboard banner
+        # doesn't flicker to "unknown" on every intraday refresh.
+        out["healthScoreMeta"] = (existing or {}).get("healthScoreMeta")
 
     try:
         alerts.check_and_alert(out["tickers"])
