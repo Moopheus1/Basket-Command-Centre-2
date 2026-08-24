@@ -133,7 +133,8 @@ jobs:
             cp /tmp/fresh_data.json docs/data.json
             cp /tmp/fresh_alert_state.json docs/alert_state.json
             [ -f /tmp/fresh_health_score_state.json ] && cp /tmp/fresh_health_score_state.json docs/health_score_state.json || true
-            git add docs/data.json docs/alert_state.json docs/health_score_state.json
+            git add docs/data.json docs/alert_state.json
+            [ -f docs/health_score_state.json ] && git add docs/health_score_state.json || true
             if git diff --staged --quiet; then
               echo "No changes to commit"
               echo "changed=false" >> "$GITHUB_OUTPUT"
