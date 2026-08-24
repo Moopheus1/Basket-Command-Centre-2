@@ -72,7 +72,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install yfinance pandas
+        run: pip install yfinance pandas requests
       - name: Determine fetch mode
         id: mode
         run: |
@@ -99,7 +99,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # docs/data.json and docs/alert_state.json are written with no
+          # docs/data.json, docs/alert_state.json, and
+          # docs/health_score_state.json are written with no
           # indentation (single-line JSON) - fast, but it means two runs
           # touching the same file produce a real content conflict on that
           # one line, which git cannot auto-merge no matter how many times
@@ -123,6 +124,7 @@ jobs:
           # retry would succeed while quietly throwing away real data.
           cp docs/data.json /tmp/fresh_data.json
           cp docs/alert_state.json /tmp/fresh_alert_state.json
+          [ -f docs/health_score_state.json ] && cp docs/health_score_state.json /tmp/fresh_health_score_state.json || true
 
           pushed=false
           for i in 1 2 3 4 5; do
@@ -130,7 +132,8 @@ jobs:
             git reset --hard origin/main -q
             cp /tmp/fresh_data.json docs/data.json
             cp /tmp/fresh_alert_state.json docs/alert_state.json
-            git add docs/data.json docs/alert_state.json
+            [ -f /tmp/fresh_health_score_state.json ] && cp /tmp/fresh_health_score_state.json docs/health_score_state.json || true
+            git add docs/data.json docs/alert_state.json docs/health_score_state.json
             if git diff --staged --quiet; then
               echo "No changes to commit"
               echo "changed=false" >> "$GITHUB_OUTPUT"
