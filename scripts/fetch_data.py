@@ -223,8 +223,11 @@ def run_intraday(tickers, existing):
                 "targetLow": prior.get("targetLow"),
                 "numAnalysts": prior.get("numAnalysts"),
                 "nextEarnings": prior.get("nextEarnings"),
-                "healthScore": prior.get("healthScore"),
-                "healthGrade": prior.get("healthGrade"),
+                # healthScore/healthGrade intentionally omitted here -
+                # apply_prior_health_scores() in main() sets them
+                # uniformly for both run_eod() and run_intraday() output,
+                # since the health check now runs on its own schedule
+                # independent of which fetch path produced this entry.
                 "bars": merged_bars,
             }
             ok += 1
@@ -240,32 +243,49 @@ def run_intraday(tickers, existing):
     return out
 
 
+def apply_prior_health_scores(tickers_dict, existing):
+    """Carry healthScore/healthGrade forward from the last run's snapshot
+    onto every entry in tickers_dict. Called unconditionally before the
+    health-check decision below, so a run that ISN'T the designated
+    health-check run (see main()) doesn't wipe out the last real fetch -
+    this matters most for run_eod(), whose fetch_full() always returns
+    null placeholders for these two fields."""
+    prior_tickers = (existing or {}).get("tickers", {})
+    for sym, entry in tickers_dict.items():
+        prior = prior_tickers.get(sym, {})
+        entry["healthScore"] = prior.get("healthScore")
+        entry["healthGrade"] = prior.get("healthGrade")
+
+
 def main():
     tickers = read_tickers()
     mode = os.environ.get("FETCH_MODE", "eod").strip().lower()
     existing = load_existing()
+    bootstrap = existing is None  # very first run ever - nothing to carry forward
 
     if mode == "intraday" and existing is not None:
         out = run_intraday(tickers, existing)
-        ran_eod = False
     else:
         if mode == "intraday":
             print("[intraday] no existing docs/data.json found — falling back to full eod fetch")
         out = run_eod(tickers)
-        ran_eod = True
 
-    if ran_eod:
-        # Health score fetch + pipeline staleness/schema-drift check -
-        # once/day only, deliberately not part of the 10-min intraday
-        # cadence (see health_score_monitor.py docstring for why).
+    # Health score check runs on its OWN schedule (the 4am ET early-ping
+    # cron - see .github/workflows/update-data.yml), deliberately
+    # decoupled from FETCH_MODE. It used to piggyback on the 16:30 ET EOD
+    # run; moved earlier so scores are fresh before the trading day
+    # starts, rather than sitting there from the previous afternoon. This
+    # has nothing to do with FETCH_MODE=eod's own heavy yfinance pull
+    # (mcap/beta/analyst targets), which is unrelated and unchanged.
+    apply_prior_health_scores(out["tickers"], existing)  # baseline: carry forward
+    is_health_check_run = os.environ.get("HEALTH_CHECK_RUN", "").strip().lower() == "true"
+    if is_health_check_run or bootstrap:
         try:
             out["healthScoreMeta"] = health_score_monitor.run(out["tickers"])
         except Exception as e:
-            print(f"[health_score] monitor pass failed, tickers keep null scores this run: {e}")
+            print(f"[health_score] monitor pass failed, keeping prior scores: {e}")
             out["healthScoreMeta"] = (existing or {}).get("healthScoreMeta")
     else:
-        # Carry the last EOD run's status forward so the dashboard banner
-        # doesn't flicker to "unknown" on every intraday refresh.
         out["healthScoreMeta"] = (existing or {}).get("healthScoreMeta")
 
     try:
@@ -276,7 +296,7 @@ def main():
     os.makedirs("docs", exist_ok=True)
     with open(DATA_PATH, "w") as f:
         json.dump(out, f, separators=(",", ":"))
-    print(f"Wrote {DATA_PATH} (mode={mode})")
+    print(f"Wrote {DATA_PATH} (mode={mode}, health_check={is_health_check_run or bootstrap})")
 
 
 if __name__ == "__main__":
