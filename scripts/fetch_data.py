@@ -32,14 +32,17 @@ import json
 import os
 import time
 from datetime import datetime, timezone, date
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import yfinance as yf
 
 import alerts
 import health_score_monitor
+import premarket_watch
 
 DATA_PATH = "docs/data.json"
+ET = ZoneInfo("America/New_York")
 
 
 def read_tickers(path="tickers.txt"):
@@ -142,6 +145,11 @@ def fetch_full(symbol):
         # drift instead of just quietly filling in None on failure.
         "healthScore": None,
         "healthGrade": None,
+        # premarketGapPct/earningsFlag: same pattern, filled in by
+        # premarket_watch.run() once/day in the pre-open window - see
+        # apply_prior_premarket_watch() in main().
+        "premarketGapPct": None,
+        "earningsFlag": None,
         "bars": bars,
     }
 
@@ -257,11 +265,43 @@ def apply_prior_health_scores(tickers_dict, existing):
         entry["healthGrade"] = prior.get("healthGrade")
 
 
+def apply_prior_premarket_watch(tickers_dict, existing):
+    """Same pattern as apply_prior_health_scores, for the pre-market gap%
+    / earnings-flag snapshot: carry forward from the last run so these
+    fields persist through the trading day instead of reverting to null
+    on every run that isn't the once-daily pre-open check."""
+    prior_tickers = (existing or {}).get("tickers", {})
+    for sym, entry in tickers_dict.items():
+        prior = prior_tickers.get(sym, {})
+        entry["premarketGapPct"] = prior.get("premarketGapPct")
+        entry["earningsFlag"] = prior.get("earningsFlag")
+
+
+def is_premarket_check_window(now_et):
+    """True in any of four short windows, each aligned to an actual
+    existing cron firing time so no new cron entry is needed: ~9:00,
+    ~9:10, ~9:20 ET (from "0,10,20 9 * * 1-5") and ~9:30 ET (the first
+    firing of the next block, "30,35,... 9 * * 1-5" - which also happens
+    to be the moment the market opens, so that last check captures the
+    actual opening print rather than a pre-open estimate).
+    Deliberately wall-clock-based rather than matching a cron string:
+    GitHub Actions' github.event.schedule is identical for every firing
+    within the same cron expression (e.g. 9:00, 9:10, AND 9:20 ET all
+    report "0,10,20 9 * * 1-5"), so a cron-string match can't tell which
+    specific firing this is - actual elapsed time can."""
+    if now_et.weekday() >= 5:  # Sat/Sun
+        return False
+    minutes = now_et.hour * 60 + now_et.minute
+    targets = [9 * 60, 9 * 60 + 10, 9 * 60 + 20, 9 * 60 + 30]  # 9:00, 9:10, 9:20, 9:30 ET
+    return any(abs(minutes - t) <= 3 for t in targets)
+
+
 def main():
     tickers = read_tickers()
     mode = os.environ.get("FETCH_MODE", "eod").strip().lower()
     existing = load_existing()
     bootstrap = existing is None  # very first run ever - nothing to carry forward
+    now_et = datetime.now(ET)
 
     if mode == "intraday" and existing is not None:
         out = run_intraday(tickers, existing)
@@ -288,6 +328,20 @@ def main():
     else:
         out["healthScoreMeta"] = (existing or {}).get("healthScoreMeta")
 
+    # Pre-market gap%/earnings-flag check runs once/day, right before the
+    # 9:30 ET open (see is_premarket_check_window - wall-clock based, not
+    # a cron-string match). Same carry-forward pattern as health scores:
+    # baseline is always "whatever we had," overwritten with a fresh
+    # snapshot only during the actual check window (or on bootstrap /
+    # manual full test via mode=eod).
+    apply_prior_premarket_watch(out["tickers"], existing)
+    is_premarket_check_run = is_premarket_check_window(now_et) or (mode == "eod" and not bootstrap and os.environ.get("FORCE_PREMARKET_CHECK", "").strip().lower() == "true")
+    if is_premarket_check_run or bootstrap:
+        try:
+            premarket_watch.run(out["tickers"], now_et)
+        except Exception as e:
+            print(f"[premarket_watch] pass failed, keeping prior snapshot: {e}")
+
     try:
         alerts.check_and_alert(out["tickers"])
     except Exception as e:
@@ -296,7 +350,8 @@ def main():
     os.makedirs("docs", exist_ok=True)
     with open(DATA_PATH, "w") as f:
         json.dump(out, f, separators=(",", ":"))
-    print(f"Wrote {DATA_PATH} (mode={mode}, health_check={is_health_check_run or bootstrap})")
+    print(f"Wrote {DATA_PATH} (mode={mode}, health_check={is_health_check_run or bootstrap}, "
+          f"premarket_check={is_premarket_check_run or bootstrap})")
 
 
 if __name__ == "__main__":
