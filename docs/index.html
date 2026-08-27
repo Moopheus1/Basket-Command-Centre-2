@@ -121,6 +121,7 @@
   <a href="#rotationPanel">↓ Rotation candidates</a>
   <a href="#reboundPanel">↓ Rebound MA200</a>
   <a href="#uptrendPanel">↓ Uptrend MA50</a>
+  <a href="#intradayBreakoutPanel">↓ Intraday Breakout Watch</a>
   <a href="#goldenPanel">↓ Golden cross</a>
   <a href="#deathPanel">↓ Death cross</a>
   <a href="#performancePanel">↓ Performance</a>
@@ -143,7 +144,7 @@
 
 <div class="panel" id="reboundPanel">
   <h2>Rebound setups to MA200, R:R 1.5+ (2-3 weeks view)</h2>
-  <div class="desc" id="reboundCaption">Stocks below MA200 with at least 1.5R reward for 1R risked. Stop = lowest low of last 12 bars (floored at 0.5x ATR14). Feasibility checks whether the required move is mathematically reasonable given this stock's own volatility (ATR scaled by sqrt of time) - it is not a predicted probability and does not account for trend direction. A high score just means the distance isn't statistically unusual for this stock; see Conviction for evidence the reversal is actually underway.</div>
+  <div class="desc" id="reboundCaption">Stocks below MA200 with at least 1.5R reward for 1R risked. Stop = lowest low of last 12 bars (floored at 0.5x ATR14). Feasibility checks whether the required move is mathematically reasonable given this stock's own volatility (ATR scaled by sqrt of time) - it is not a predicted probability and does not account for trend direction. A high score just means the distance isn't statistically unusual for this stock; see Conviction for evidence the reversal is actually underway. Weekly RSI (not daily) is shown here since this is a 2-3 week setup — a daily reading can flip in a couple of sessions and doesn't match that holding period.</div>
   <div style="overflow-x:auto">
     <table>
       <thead><tr id="reboundTheadRow"></tr></thead>
@@ -159,6 +160,17 @@
     <table>
       <thead><tr id="reboundMA50TheadRow"></tr></thead>
       <tbody id="reboundMA50Body"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel" id="intradayBreakoutPanel">
+  <h2>Intraday Breakout Watch (volume-confirmed, 5%+ in the green)</h2>
+  <div class="desc" id="intradayBreakoutCaption">Stocks currently up 5%+ on the day AND trading at least 2x their trailing 20-day MEDIAN volume (median, not mean, so one past outlier day like an earnings spike can't quietly inflate the baseline). Both conditions must hold — a big move alone isn't enough, and neither is heavy volume alone. Pre-Mkt Gap and Earnings columns show WHY a stock likely qualifies (already gapping before the open, or digesting a fresh earnings report) — they are input context, not the filter itself. This is DESCRIPTIVE, not predictive: it only flags a move already underway, using volume and price data that only exists once the move has started. Nothing here predicts a move before it happens — if a technical pattern reliably predicted a specific 5%+ move in advance, it would already be priced in by the time you could act on it. Before market close, "Volume vs 20d median" is pace-adjusted for how much of the session has elapsed, so it's an extrapolation, not a guarantee it holds through the close.</div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr id="intradayBreakoutTheadRow"></tr></thead>
+      <tbody id="intradayBreakoutBody"></tbody>
     </table>
   </div>
 </div>
@@ -209,7 +221,7 @@
 
 <div class="panel" id="detailedPanel">
   <h2>Detailed ticker cards</h2>
-  <div class="desc">Last close, 3-month daily trend line, 1M/3M/1Y returns, 52-week range position, market cap, beta, volume vs 20-day average, sector, and industry.</div>
+  <div class="desc">Last close, 3-month daily trend line, 1M/3M/1Y returns, 52-week range position, market cap, beta, volume vs 20-day average, daily RSI(14), weekly RSI(14), sector, and industry.</div>
   <div class="dcards" id="dcards"></div>
 </div>
 
@@ -240,6 +252,7 @@ let healthScoreMeta = null;   // {status, successRate, okCount, attempted, conse
 let sortCol = 'sig', sortDir = -1;
 let reboundSortCol = 'rr', reboundSortDir = -1;
 let reboundMA50SortCol = 'rr', reboundMA50SortDir = -1;
+let intradayBreakoutSortCol = 'volRatio', intradayBreakoutSortDir = -1;
 let goldenSortCol = 'ord', goldenSortDir = 1;
 let deathSortCol = 'ord', deathSortDir = 1;
 
@@ -295,6 +308,40 @@ function computeCrossStatus(rawBars) {
   return null;
 }
 
+function rsi14(closes) {
+  if (closes.length < 15) return null;
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= 14; i++) {
+    const ch = closes[closes.length - i] - closes[closes.length - i - 1];
+    if (ch > 0) gains += ch; else losses -= ch;
+  }
+  const avgGain = gains / 14, avgLoss = losses / 14;
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+function weeklyClosesFromDaily(bars) {
+  // Resample daily bars into one close per ISO week (Mon-Sun), taking
+  // the last trading day's close in each week - the standard way to
+  // build a weekly candle series from daily data.
+  const closes = [];
+  let curWeekKey = null, curClose = null;
+  for (const b of bars) {
+    const d = new Date(b.time * 1000);
+    const dow = (d.getDay() + 6) % 7; // Mon=0..Sun=6
+    const wkStart = new Date(d);
+    wkStart.setDate(d.getDate() - dow);
+    wkStart.setHours(0, 0, 0, 0);
+    const key = wkStart.getTime();
+    if (key !== curWeekKey) {
+      if (curWeekKey !== null) closes.push(curClose);
+      curWeekKey = key;
+    }
+    curClose = b.close;
+  }
+  if (curWeekKey !== null) closes.push(curClose);
+  return closes;
+}
 function computeMetrics(rawBars) {
   const bars = rawBars.map(b => ({ time: b[0], open: b[1], high: b[2], low: b[3], close: b[4], volume: b[5] }));
   const last = bars[bars.length - 1];
@@ -330,21 +377,11 @@ function computeMetrics(rawBars) {
   const v20 = bars.slice(-20);
   const avgVol = v20.reduce((s, b) => s + (b.volume || 0), 0) / v20.length;
 
-  // RSI 14
-  function rsi14(closes) {
-    if (closes.length < 15) return null;
-    let gains = 0, losses = 0;
-    for (let i = 1; i <= 14; i++) {
-      const ch = closes[closes.length - i] - closes[closes.length - i - 1];
-      if (ch > 0) gains += ch; else losses -= ch;
-    }
-    const avgGain = gains / 14, avgLoss = losses / 14;
-    if (avgLoss === 0) return 100;
-    const rs = avgGain / avgLoss;
-    return 100 - (100 / (1 + rs));
-  }
+  // RSI 14 (uses the module-level rsi14() above, works on both daily
+  // and resampled-weekly close series)
   const closes = bars.map(b => b.close);
   const rsi = rsi14(closes);
+  const weeklyRsi = rsi14(weeklyClosesFromDaily(bars));
 
   // Moving averages
   function sma(n) {
@@ -422,6 +459,7 @@ function computeMetrics(rawBars) {
     asOf: lastDate,
     // New fields for scoring
     rsi: rsi,
+    weeklyRsi: weeklyRsi,
     ma20: ma20,
     ma50: ma50,
     ma200: ma200,
@@ -430,8 +468,16 @@ function computeMetrics(rawBars) {
     higherLows: totalLows > 0 ? higherLows / totalLows : null,
     rsiPrev: rsiPrev,
     closes: closes,
+    volumes: bars.map(b => b.volume),
+    highs: bars.map(b => b.high),
     swingLow: swingLow
   };
+}
+function median(arr) {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function rallyLink(t) {
@@ -592,7 +638,7 @@ function renderHealthScoreBanner() {
     '<div style="background:' + bg + ';border:1px solid ' + border + ';color:' + color +
     ';border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.5">' +
     '<b>⚠ ' + label + '.</b> Equity Lens fetch success rate ' + rate +
-    ' (' + healthScoreMeta.consecutiveBadRuns + ' consecutive bad EOD run(s)). ' +
+    ' (' + healthScoreMeta.consecutiveBadRuns + ' consecutive bad check(s)). ' +
     'Last known-good run: ' + lastGood + '. Health Score column values shown may be outdated.' +
     '</div>';
 }
@@ -700,6 +746,7 @@ function render() {
   renderRotationCandidates(stocks);
   renderRebound(stocks);
   renderReboundMA50(stocks);
+  renderIntradayBreakout(stocks);
   renderGoldenCross(stocks);
   renderDeathCross(stocks);
 }
@@ -726,12 +773,14 @@ function renderRotationCandidates(stocks) {
     const n = list.length;
     let goldenCount = 0, breakoutCount = 0, rsiCount = 0, rsiKnownCount = 0;
     let top = null, bottom = null;
+    const rsiValues = [];
     for (const t of list) {
       const d = data[t];
       if (d.cross && d.cross.type === 'golden') goldenCount++;
       if (d.offHigh != null && d.offHigh >= ROTATION_BREAKOUT_MAX_OFF_HIGH) breakoutCount++;
       if (d.rsi != null) {
         rsiKnownCount++;
+        rsiValues.push(d.rsi);
         if (d.rsi >= ROTATION_RSI_MIN && d.rsi <= ROTATION_RSI_MAX) rsiCount++;
       }
       if (d.daily != null) {
@@ -742,16 +791,17 @@ function renderRotationCandidates(stocks) {
     const pctGolden = (goldenCount / n) * 100;
     const pctBreakout = (breakoutCount / n) * 100;
     const pctNeutralRsi = rsiKnownCount ? (rsiCount / rsiKnownCount) * 100 : 0;
+    const medianRsi = median(rsiValues);
     const isGolden = pctGolden >= GOLDEN_CROSS_MIN_PCT;
     const isBreakout = pctBreakout >= BREAKOUT_MIN_PCT;
     const rsiOk = rsiKnownCount > 0 && pctNeutralRsi >= NEUTRAL_RSI_MIN_PCT;
     const candidate = n >= 2 && (isGolden || isBreakout) && rsiOk;
     let setup = isGolden && isBreakout ? 'GOLDEN CROSS + BREAKOUT' : isGolden ? 'GOLDEN CROSS' : isBreakout ? 'BREAKOUT WATCH' : '—';
-    return { sector, n, pctGolden, pctBreakout, pctNeutralRsi, rsiKnownCount, setup, candidate, top, bottom, score: (pctGolden + pctBreakout) / 2 };
+    return { sector, n, pctGolden, pctBreakout, pctNeutralRsi, medianRsi, rsiKnownCount, setup, candidate, top, bottom, score: (pctGolden + pctBreakout) / 2 };
   }).sort((a, b) => a.sector.localeCompare(b.sector));
 
   document.getElementById('rotationTheadRow').innerHTML =
-    '<th>Sector</th><th>Stocks</th><th>Golden cross</th><th>Near 52W high</th><th>RSI 40&ndash;65</th><th>Setup</th><th>Candidate</th><th>Top mover</th><th>Bottom mover</th>';
+    '<th>Sector</th><th>Stocks</th><th>Golden cross</th><th>Near 52W high</th><th>RSI 40&ndash;65</th><th>Median RSI</th><th>Setup</th><th>Candidate</th><th>Top mover</th><th>Bottom mover</th>';
 
   function moverCell(t) {
     if (!t) return '—';
@@ -774,16 +824,43 @@ function renderRotationCandidates(stocks) {
     '<td>' + r.pctGolden.toFixed(0) + '%</td>' +
     '<td>' + r.pctBreakout.toFixed(0) + '%</td>' +
     '<td>' + (r.rsiKnownCount ? r.pctNeutralRsi.toFixed(0) + '%' : '—') + '</td>' +
+    '<td>' + rsiBadge(r.medianRsi) + '</td>' +
     '<td>' + esc(r.setup) + '</td>' +
     '<td>' + (r.candidate ? '<span class="up" style="font-weight:700">YES</span>' : '<span class="flat">no</span>') + '</td>' +
     '<td style="text-align:left">' + moverCell(r.top) + '</td>' +
     '<td style="text-align:left">' + moverCell(r.bottom) + '</td></tr>'
-  ).join('') : '<tr><td colspan="9" style="text-align:center;color:#6b7280">No sector data available.</td></tr>';
+  ).join('') : '<tr><td colspan="10" style="text-align:center;color:#6b7280">No sector data available.</td></tr>';
 }
 function scoreBadge(score) {
   if (score == null) return '<span style="color:#6b7280">—</span>';
   let color = score >= 70 ? '#0a9e5c' : score >= 50 ? '#6b7280' : '#e5484d';
   return '<span style="color:' + color + ';font-weight:700">' + Math.round(score) + '</span>';
+}
+function rsiBadge(rsi) {
+  // Standard overbought(>=70)/oversold(<=30) bands - red/green here means
+  // "reading is extreme", not "this is a signal to trade."
+  if (rsi == null) return '<span style="color:#6b7280">—</span>';
+  const color = rsi >= 70 ? '#e5484d' : rsi <= 30 ? '#0a9e5c' : '#6b7280';
+  return '<span style="color:' + color + ';font-weight:700">' + Math.round(rsi) + '</span>';
+}
+
+function premarketBadge(gapPct, earningsFlag) {
+  // Snapshot from the last of four checks at ~9:00/9:10/9:20/9:30am ET,
+  // day - NOT a live number. Title attr says so explicitly so hovering
+  // makes that clear without cluttering the cell itself.
+  const title = 'Snapshot from the last check (~9:00-9:30am ET, the last one at the opening bell) — does not update after that.';
+  let gapHtml = '<span style="color:#6b7280">—</span>';
+  if (gapPct != null) {
+    const color = gapPct >= 3 ? '#0a9e5c' : gapPct <= -3 ? '#e5484d' : '#6b7280';
+    gapHtml = '<span style="color:' + color + ';font-weight:700">' + (gapPct >= 0 ? '+' : '') + gapPct.toFixed(1) + '%</span>';
+  }
+  let earnHtml = '';
+  if (earningsFlag === 'recent') {
+    earnHtml = ' <span style="color:#8b5cf6;font-size:11px;font-weight:700" title="Reported earnings in the last few days">E</span>';
+  } else if (earningsFlag === 'today') {
+    earnHtml = ' <span style="color:#f59e0b;font-size:11px;font-weight:700" title="Scheduled to report earnings today">E?</span>';
+  }
+  return '<span title="' + title + '">' + gapHtml + earnHtml + '</span>';
 }
 
 function signalBadge(signal) {
@@ -1090,6 +1167,8 @@ function renderDetailed(spy, tickers) {
       '<div><div class="k">Avg volume (20D)</div><div class="v">' + fmtVol(d.avgVol) + '</div></div>' +
       '<div><div class="k">Off 52W high</div><div class="v">' + pctHtml(d.offHigh, {arrow:false, dp:1}) + '</div></div>' +
       '<div><div class="k">vs SPY (daily)</div><div class="v">' + (vsSpy == null ? '—' : pctHtml(vsSpy, {sign:true, arrow:false, dp:2})) + '</div></div>' +
+      '<div><div class="k">RSI (14D)</div><div class="v">' + rsiBadge(d.rsi) + '</div></div>' +
+      '<div><div class="k">Weekly RSI</div><div class="v">' + rsiBadge(d.weeklyRsi) + '</div></div>' +
       '</div>';
     // Add momentum/persistence/signal row
     body += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;border-top:1px solid #f3f4f6;padding-top:10px">' +
@@ -1105,7 +1184,7 @@ const COLS = [
   ['sym', 'Ticker'], ['price', 'Price'], ['daily', 'Daily'], ['wtd', 'WTD'], ['mtd', 'MTD'],
   ['ytd', 'YTD'], ['y1', '1Y'], ['vsSpy', 'vs SPY'], ['mom', 'Momentum'], ['per', 'Persist'], ['sig', 'Signal'],
   ['target', 'Analyst Target'], ['earnings', 'Next Earnings'], ['mcap', 'Market cap'], ['vol', 'Volume'],
-  ['health', 'Health Score']
+  ['health', 'Health Score'], ['rsi', 'RSI (14D)']
 ];
 function renderTable(spy, tickers) {
   document.getElementById('theadRow').innerHTML = COLS.map(c =>
@@ -1120,7 +1199,7 @@ function renderTable(spy, tickers) {
     return { sym: t, price: d.price, daily: d.daily, wtd: d.wtd, mtd: d.mtd, ytd: d.ytd, y1: d.y1,
              vsSpy: spy ? d.daily - spy.daily : null, mom: d.momScore, per: d.perScore, sig: d.signal,
              target: targetUpside, earnings: f.nextEarnings, f: f,
-             mcap: f.mcap != null ? f.mcap : null, vol: d.vol, health: f.healthScore };
+             mcap: f.mcap != null ? f.mcap : null, vol: d.vol, health: f.healthScore, rsi: d.rsi };
   });
   rows.sort((a, b) => {
     const x = a[sortCol], y = b[sortCol];
@@ -1133,7 +1212,7 @@ function renderTable(spy, tickers) {
   });
 
   const extraRows = tickers.filter(t => data[t] && data[t].error).map(t =>
-    '<tr><td>' + t + '</td><td colspan="15" style="text-align:left"><span class="down">no data: ' +
+    '<tr><td>' + t + '</td><td colspan="16" style="text-align:left"><span class="down">no data: ' +
     esc(data[t].error).slice(0, 40) + '</span></td></tr>'
   ).join('');
 
@@ -1153,7 +1232,8 @@ function renderTable(spy, tickers) {
     '<td>' + fmtEarnings(r.earnings) + '</td>' +
     '<td>' + fmtMcap(r.mcap) + '</td>' +
     '<td>' + fmtVol(r.vol) + '</td>' +
-    '<td>' + scoreBadge(r.health) + (r.f.healthGrade ? ' <span style="color:#9ca3af;font-size:11px">' + r.f.healthGrade + '</span>' : '') + '</td></tr>'
+    '<td>' + scoreBadge(r.health) + (r.f.healthGrade ? ' <span style="color:#9ca3af;font-size:11px">' + r.f.healthGrade + '</span>' : '') + '</td>' +
+    '<td>' + rsiBadge(r.rsi) + '</td></tr>'
   ).join('') + extraRows;
 }
 function rrBadge(rr) {
@@ -1169,7 +1249,7 @@ function feasBadge(f) {
 const REBOUND_COLS = [
   ['sym','Ticker'], ['price','Price'], ['ma','MA200'], ['dist','Distance'],
   ['stop','Stop (12D low)'], ['rr','R:R'], ['feas','Feasibility'], ['conviction','Conviction'],
-  ['target','Analyst Target'], ['earnings','Next Earnings']
+  ['target','Analyst Target'], ['earnings','Next Earnings'], ['wrsi','Weekly RSI']
 ];
 function renderRebound(stocks) {
   const el = document.getElementById('reboundBody');
@@ -1193,7 +1273,7 @@ function renderRebound(stocks) {
     const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
     return { sym: t, price: d.price, ma: r.target, dist: pct(r.target, d.price), stop: r.swingLow,
              rr: r.rr, feas: r.feasibility, conviction: d.reboundConviction, target: targetUpside,
-             earnings: f.nextEarnings, _r: r };
+             earnings: f.nextEarnings, wrsi: d.weeklyRsi, _r: r };
   });
   rows.sort((a, b) => {
     const x = a[reboundSortCol], y = b[reboundSortCol];
@@ -1221,8 +1301,9 @@ function renderRebound(stocks) {
       '<td>' + feasBadge(row.feas) + '</td>' +
       '<td>' + scoreBadge(row.conviction) + '</td>' +
       '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td>' +
-      '<td>' + fmtEarnings(row.earnings) + '</td></tr>';
-  }).join('') : '<tr><td colspan="10" class="empty">No stocks below MA200 currently clear an R:R of ' + MIN_RR + '+.</td></tr>';
+      '<td>' + fmtEarnings(row.earnings) + '</td>' +
+      '<td>' + rsiBadge(row.wrsi) + '</td></tr>';
+  }).join('') : '<tr><td colspan="11" class="empty">No stocks below MA200 currently clear an R:R of ' + MIN_RR + '+.</td></tr>';
 }
 function setReboundSort(col) {
   if (reboundSortCol === col) reboundSortDir = -reboundSortDir; else { reboundSortCol = col; reboundSortDir = col === 'sym' ? 1 : -1; }
@@ -1231,7 +1312,7 @@ function setReboundSort(col) {
 const REBOUND_MA50_COLS = [
   ['sym','Ticker'], ['price','Price'], ['ma','MA50'], ['dist','Distance'],
   ['stop','Stop (12D low)'], ['rr','R:R'], ['feas','Feasibility'], ['conviction','Conviction'],
-  ['target','Analyst Target'], ['earnings','Next Earnings']
+  ['target','Analyst Target'], ['earnings','Next Earnings'], ['wrsi','Weekly RSI']
 ];
 function renderReboundMA50(stocks) {
   const el = document.getElementById('reboundMA50Body');
@@ -1255,7 +1336,7 @@ function renderReboundMA50(stocks) {
     const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
     return { sym: t, price: d.price, ma: r.target, dist: pct(r.target, d.price), stop: r.swingLow,
              rr: r.rr, feas: r.feasibility, conviction: d.reboundConviction, target: targetUpside,
-             earnings: f.nextEarnings, _r: r };
+             earnings: f.nextEarnings, wrsi: d.weeklyRsi, _r: r };
   });
   rows.sort((a, b) => {
     const x = a[reboundMA50SortCol], y = b[reboundMA50SortCol];
@@ -1283,15 +1364,105 @@ function renderReboundMA50(stocks) {
       '<td>' + feasBadge(row.feas) + '</td>' +
       '<td>' + scoreBadge(row.conviction) + '</td>' +
       '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td>' +
-      '<td>' + fmtEarnings(row.earnings) + '</td></tr>';
-  }).join('') : '<tr><td colspan="10" class="empty">No trend-confirmed (MA200 reclaimed, MA20>MA50) stocks currently clear an R:R of ' + MIN_RR_MA50 + '+ to MA50.</td></tr>';
+      '<td>' + fmtEarnings(row.earnings) + '</td>' +
+      '<td>' + rsiBadge(row.wrsi) + '</td></tr>';
+  }).join('') : '<tr><td colspan="11" class="empty">No trend-confirmed (MA200 reclaimed, MA20>MA50) stocks currently clear an R:R of ' + MIN_RR_MA50 + '+ to MA50.</td></tr>';
 }
 function setReboundMA50Sort(col) {
   if (reboundMA50SortCol === col) reboundMA50SortDir = -reboundMA50SortDir; else { reboundMA50SortCol = col; reboundMA50SortDir = col === 'sym' ? 1 : -1; }
   render();
 }
 
-const CROSS_COLS = [['sym','Ticker'],['price','Price'],['ma50','MA50'],['ma200','MA200'],['gap','Gap %'],['ord','Status'],['target','Analyst Target']];
+const INTRADAY_BREAKOUT_COLS = [
+  ['sym','Ticker'], ['price','Price'], ['daily','Day %'], ['volRatio','Vol vs 20d Median'],
+  ['premkt','Pre-Mkt Gap'], ['earningsFlag','Earnings'], ['newHigh','New 20D High'], ['rsi','RSI (14D)']
+];
+const BREAKOUT_MIN_DAY_PCT = 5;      // must be up at least this much today
+const BREAKOUT_MIN_VOL_RATIO = 2;    // and trading at least this many x the 20d median volume
+const SESSION_OPEN_MIN = 9 * 60 + 30, SESSION_CLOSE_MIN = 16 * 60, SESSION_LEN_MIN = SESSION_CLOSE_MIN - SESSION_OPEN_MIN;
+
+function nowET() {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+}
+
+function renderIntradayBreakout(stocks) {
+  const el = document.getElementById('intradayBreakoutBody');
+  if (!el) return;
+  const theadEl = document.getElementById('intradayBreakoutTheadRow');
+  if (theadEl) {
+    theadEl.innerHTML = INTRADAY_BREAKOUT_COLS.map(c =>
+      '<th onclick="setIntradayBreakoutSort(\'' + c[0] + '\')">' + c[1] +
+      (intradayBreakoutSortCol === c[0] ? ' <span class="arrow">' + (intradayBreakoutSortDir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>'
+    ).join('');
+  }
+
+  const et = nowET();
+  const etMinutes = et.getHours() * 60 + et.getMinutes();
+  const isWeekday = et.getDay() >= 1 && et.getDay() <= 5;
+  const marketOpen = isWeekday && etMinutes > SESSION_OPEN_MIN && etMinutes < SESSION_CLOSE_MIN;
+  const fracElapsed = marketOpen ? Math.max(etMinutes - SESSION_OPEN_MIN, 1) / SESSION_LEN_MIN : 1;
+
+  let scanned = 0, skippedNoData = 0;
+  const candidates = [];
+  for (const t of stocks) {
+    const d = data[t];
+    if (!d || d.error || !d.volumes || d.volumes.length < 22 || !d.highs) { skippedNoData++; continue; }
+    scanned++;
+    const vols = d.volumes, highs = d.highs;
+    const todayVol = vols[vols.length - 1];
+    const prior20Vols = vols.slice(-21, -1);
+    const prior20Highs = highs.slice(-21, -1);
+    const medianVol = median(prior20Vols);
+    if (!medianVol) continue;
+    const rawRatio = todayVol / medianVol;
+    const volRatio = marketOpen ? rawRatio / fracElapsed : rawRatio;
+    const priorHigh = Math.max(...prior20Highs);
+    const newHigh = d.price != null && d.price >= priorHigh;
+    const dayPct = d.daily;
+
+    if (dayPct != null && dayPct >= BREAKOUT_MIN_DAY_PCT && volRatio >= BREAKOUT_MIN_VOL_RATIO) {
+      const f = fund[t] || {};
+      candidates.push({ sym: t, price: d.price, daily: dayPct, volRatio: volRatio,
+                         premkt: f.premarketGapPct, earningsFlag: f.earningsFlag, newHigh: newHigh, rsi: d.rsi });
+    }
+  }
+
+  candidates.sort((a, b) => {
+    const x = a[intradayBreakoutSortCol], y = b[intradayBreakoutSortCol];
+    if (intradayBreakoutSortCol === 'sym') return intradayBreakoutSortDir * String(x).localeCompare(String(y));
+    if (intradayBreakoutSortCol === 'newHigh') return intradayBreakoutSortDir * ((x ? 1 : 0) - (y ? 1 : 0));
+    return intradayBreakoutSortDir * ((x == null ? -Infinity : x) - (y == null ? -Infinity : y));
+  });
+
+  const caption = document.getElementById('intradayBreakoutCaption');
+  if (caption) {
+    caption.textContent = candidates.length + ' of ' + scanned + ' tracked stocks are currently up ' +
+      BREAKOUT_MIN_DAY_PCT + '%+ on ' + BREAKOUT_MIN_VOL_RATIO + 'x+ their 20-day median volume' +
+      (marketOpen ? ' (volume pace-adjusted for ' + Math.round(fracElapsed * 100) + '% of today\'s session elapsed — an extrapolation, not final).' : ' (using the most recent completed session).') +
+      (skippedNoData ? ' ' + skippedNoData + ' skipped (insufficient bars).' : '') +
+      ' Pre-Mkt Gap and Earnings show likely context, not the filter itself — both conditions above must hold regardless of either.';
+  }
+
+  el.innerHTML = candidates.length ? candidates.map(c => {
+    const f = fund[c.sym] || {};
+    return '<tr><td><a class="tklink" href="' + rallyLink(c.sym) + '" target="_blank" rel="noopener noreferrer">' + c.sym + '</a></td>' +
+      '<td>' + fmtPrice(c.price) + '</td>' +
+      '<td>' + pctHtml(c.daily, {sign:true, dp:1}) + '</td>' +
+      '<td><span style="font-weight:700;color:#0a9e5c">' + c.volRatio.toFixed(1) + 'x</span></td>' +
+      '<td>' + premarketBadge(c.premkt, null) + '</td>' +
+      '<td>' + (c.earningsFlag === 'recent' ? '<span style="color:#8b5cf6;font-weight:700" title="Reported earnings in the last few days">Recent</span>' :
+                 c.earningsFlag === 'today' ? '<span style="color:#f59e0b;font-weight:700" title="Scheduled to report earnings today">Today</span>' :
+                 '<span style="color:#6b7280">—</span>') + '</td>' +
+      '<td>' + (c.newHigh ? '<span style="color:#0a9e5c;font-weight:700">Yes</span>' : '<span style="color:#6b7280">no</span>') + '</td>' +
+      '<td>' + rsiBadge(c.rsi) + '</td></tr>';
+  }).join('') : '<tr><td colspan="8" class="empty">No stocks currently meet both the ' + BREAKOUT_MIN_DAY_PCT + '%+ move and ' + BREAKOUT_MIN_VOL_RATIO + 'x+ volume conditions.</td></tr>';
+}
+function setIntradayBreakoutSort(col) {
+  if (intradayBreakoutSortCol === col) intradayBreakoutSortDir = -intradayBreakoutSortDir; else { intradayBreakoutSortCol = col; intradayBreakoutSortDir = col === 'sym' ? 1 : -1; }
+  render();
+}
+
+const CROSS_COLS = [['sym','Ticker'],['price','Price'],['ma50','MA50'],['ma200','MA200'],['gap','Gap %'],['ord','Status'],['target','Analyst Target'],['wrsi','Weekly RSI']];
 
 function renderCrossTable(stocks, kind, theadId, bodyId, captionId, sortCol, sortDir, setterName) {
   const el = document.getElementById(bodyId);
@@ -1312,7 +1483,7 @@ function renderCrossTable(stocks, kind, theadId, bodyId, captionId, sortCol, sor
     const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
     // ord: confirmed crosses sort by recency (0 = today), approaching sort after them by gap size
     return { sym: t, price: d.price, ma50: c.ma50, ma200: c.ma200, gap: c.gapPct,
-             ord: c.status === 'crossed' ? c.barsAgo : 100 + Math.abs(c.gapPct), target: targetUpside, _c: c };
+             ord: c.status === 'crossed' ? c.barsAgo : 100 + Math.abs(c.gapPct), target: targetUpside, wrsi: d.weeklyRsi, _c: c };
   });
   rows.sort((a, b) => {
     const x = a[sortCol], y = b[sortCol];
@@ -1343,8 +1514,9 @@ function renderCrossTable(stocks, kind, theadId, bodyId, captionId, sortCol, sor
       '<td>' + fmtPrice(row.ma200) + '</td>' +
       '<td>' + pctHtml(row.gap, {arrow:false, sign:true, dp:2}) + '</td>' +
       '<td>' + statusHtml + '</td>' +
-      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td></tr>';
-  }).join('') : '<tr><td colspan="7" class="empty">No stocks currently in the ' + label + ' cross zone (no MA50/MA200 cross in the last ' + CROSS_LOOKBACK + ' sessions, none approaching within ' + CROSS_APPROACH_GAP + '%).</td></tr>';
+      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td>' +
+      '<td>' + rsiBadge(row.wrsi) + '</td></tr>';
+  }).join('') : '<tr><td colspan="8" class="empty">No stocks currently in the ' + label + ' cross zone (no MA50/MA200 cross in the last ' + CROSS_LOOKBACK + ' sessions, none approaching within ' + CROSS_APPROACH_GAP + '%).</td></tr>';
 }
 
 function renderGoldenCross(stocks) {
@@ -1392,7 +1564,9 @@ async function loadData() {
                     targetMean: entry.targetMean, targetHigh: entry.targetHigh, targetLow: entry.targetLow, numAnalysts: entry.numAnalysts,
                     nextEarnings: entry.nextEarnings || null,
                     healthScore: entry.healthScore != null ? entry.healthScore : null,
-                    healthGrade: entry.healthGrade || null };
+                    healthGrade: entry.healthGrade || null,
+                    premarketGapPct: entry.premarketGapPct != null ? entry.premarketGapPct : null,
+                    earningsFlag: entry.earningsFlag || null };
     }
   } catch (e) {
     document.getElementById('cards').innerHTML = '<div class="empty">Could not load data.json — ' + esc(e.message) + '</div>';
