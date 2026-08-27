@@ -166,7 +166,7 @@
 
 <div class="panel" id="intradayBreakoutPanel">
   <h2>Intraday Breakout Watch (volume-confirmed, 5%+ in the green)</h2>
-  <div class="desc" id="intradayBreakoutCaption">Stocks currently up 5%+ on the day AND trading at least 2x their trailing 20-day MEDIAN volume (median, not mean, so one past outlier day like an earnings spike can't quietly inflate the baseline). Both conditions must hold — a big move alone isn't enough, and neither is heavy volume alone. Pre-Mkt Gap and Earnings columns show WHY a stock likely qualifies (already gapping before the open, or digesting a fresh earnings report) — they are input context, not the filter itself. This is DESCRIPTIVE, not predictive: it only flags a move already underway, using volume and price data that only exists once the move has started. Nothing here predicts a move before it happens — if a technical pattern reliably predicted a specific 5%+ move in advance, it would already be priced in by the time you could act on it. Before market close, "Volume vs 20d median" is pace-adjusted for how much of the session has elapsed, so it's an extrapolation, not a guarantee it holds through the close.</div>
+  <div class="desc" id="intradayBreakoutCaption">Stocks currently up 5%+ on the day AND trading at least 2x their trailing 20-day MEDIAN volume (median, not mean, so one past outlier day like an earnings spike can't quietly inflate the baseline). Neither the day% threshold nor "Off Today's High" tells you whether a move is already used up — a stock sitting near its own intraday high can mean it's still climbing, OR that it already popped once and has been flat near that ceiling ever since with nothing forcing it further; the two look identical on that metric alone. "Move vs Typical Day" compares today's move to the stock's own normal daily range (ATR14) as a MAGNITUDE-only read — deliberately shown in one neutral color, not red/green, because a large number here does not mean "due to reverse" or "cut here." A stock already at 5x its typical day can absolutely run to 8x or 10x on a strong catalyst (an earnings beat, for instance) just as easily as it can pull back — this number carries no directional information either way, it only says how large today is for THIS stock compared to its own normal, which is mainly useful for comparing across tickers whose normal volatility differs a lot. None of the columns here predict what happens next. This is DESCRIPTIVE, not predictive: it only flags a move already underway. Before market close, "Volume vs 20d median" is pace-adjusted for how much of the session has elapsed, so it's an extrapolation, not a guarantee it holds through the close.</div>
   <div style="overflow-x:auto">
     <table>
       <thead><tr id="intradayBreakoutTheadRow"></tr></thead>
@@ -1375,7 +1375,7 @@ function setReboundMA50Sort(col) {
 
 const INTRADAY_BREAKOUT_COLS = [
   ['sym','Ticker'], ['price','Price'], ['daily','Day %'], ['volRatio','Vol vs 20d Median'],
-  ['premkt','Pre-Mkt Gap'], ['earningsFlag','Earnings'], ['newHigh','New 20D High'], ['rsi','RSI (14D)']
+  ['moveVsAtr','Move vs Typical Day'], ['offHighToday','Off Today\'s High'], ['premkt','Pre-Mkt Gap'], ['earningsFlag','Earnings'], ['newHigh','New 20D High'], ['rsi','RSI (14D)']
 ];
 const BREAKOUT_MIN_DAY_PCT = 5;      // must be up at least this much today
 const BREAKOUT_MIN_VOL_RATIO = 2;    // and trading at least this many x the 20d median volume
@@ -1419,10 +1419,14 @@ function renderIntradayBreakout(stocks) {
     const priorHigh = Math.max(...prior20Highs);
     const newHigh = d.price != null && d.price >= priorHigh;
     const dayPct = d.daily;
+    const todayHigh = highs[highs.length - 1];
+    const offHighToday = (todayHigh > 0 && d.price != null) ? (todayHigh - d.price) / todayHigh * 100 : null;
+    const atrPct = (d.atr != null && d.price) ? d.atr / d.price * 100 : null;
+    const moveVsAtr = (atrPct && atrPct > 0 && dayPct != null) ? Math.abs(dayPct) / atrPct : null;
 
     if (dayPct != null && dayPct >= BREAKOUT_MIN_DAY_PCT && volRatio >= BREAKOUT_MIN_VOL_RATIO) {
       const f = fund[t] || {};
-      candidates.push({ sym: t, price: d.price, daily: dayPct, volRatio: volRatio,
+      candidates.push({ sym: t, price: d.price, daily: dayPct, volRatio: volRatio, offHighToday: offHighToday, moveVsAtr: moveVsAtr,
                          premkt: f.premarketGapPct, earningsFlag: f.earningsFlag, newHigh: newHigh, rsi: d.rsi });
     }
   }
@@ -1445,17 +1449,23 @@ function renderIntradayBreakout(stocks) {
 
   el.innerHTML = candidates.length ? candidates.map(c => {
     const f = fund[c.sym] || {};
+    const offHighHtml = c.offHighToday == null ? '<span style="color:#6b7280">—</span>' :
+      '<span style="font-weight:700;color:' + (c.offHighToday <= 1 ? '#0a9e5c' : c.offHighToday <= 3 ? '#6b7280' : '#e5484d') + '" title="How far below today\'s own intraday high the price currently sits — a large gap means the move has already faded from its peak. A SMALL gap does NOT mean more room to run - it can equally mean the move already happened and is just sitting flat near its ceiling. See Move vs Typical Day for that question instead.">-' + c.offHighToday.toFixed(1) + '%</span>';
+    const moveVsAtrHtml = c.moveVsAtr == null ? '<span style="color:#6b7280">—</span>' :
+      '<span style="font-weight:700;color:#374151" title="Today\'s move size divided by this stock\'s own typical daily range (ATR14). This is a MAGNITUDE measure only, not a directional signal - it does not mean the move is due to reverse. A stock already stretched relative to its own normal range can keep extending much further on a strong catalyst (e.g. earnings), or can reverse immediately - this number carries no information either way about which happens next. It only tells you how large today is FOR THIS STOCK compared to its own normal day, useful mainly for comparing across different tickers whose normal volatility differs a lot.">' + c.moveVsAtr.toFixed(1) + 'x</span>';
     return '<tr><td><a class="tklink" href="' + rallyLink(c.sym) + '" target="_blank" rel="noopener noreferrer">' + c.sym + '</a></td>' +
       '<td>' + fmtPrice(c.price) + '</td>' +
       '<td>' + pctHtml(c.daily, {sign:true, dp:1}) + '</td>' +
       '<td><span style="font-weight:700;color:#0a9e5c">' + c.volRatio.toFixed(1) + 'x</span></td>' +
+      '<td>' + moveVsAtrHtml + '</td>' +
+      '<td>' + offHighHtml + '</td>' +
       '<td>' + premarketBadge(c.premkt, null) + '</td>' +
       '<td>' + (c.earningsFlag === 'recent' ? '<span style="color:#8b5cf6;font-weight:700" title="Reported earnings in the last few days">Recent</span>' :
                  c.earningsFlag === 'today' ? '<span style="color:#f59e0b;font-weight:700" title="Scheduled to report earnings today">Today</span>' :
                  '<span style="color:#6b7280">—</span>') + '</td>' +
       '<td>' + (c.newHigh ? '<span style="color:#0a9e5c;font-weight:700">Yes</span>' : '<span style="color:#6b7280">no</span>') + '</td>' +
       '<td>' + rsiBadge(c.rsi) + '</td></tr>';
-  }).join('') : '<tr><td colspan="8" class="empty">No stocks currently meet both the ' + BREAKOUT_MIN_DAY_PCT + '%+ move and ' + BREAKOUT_MIN_VOL_RATIO + 'x+ volume conditions.</td></tr>';
+  }).join('') : '<tr><td colspan="10" class="empty">No stocks currently meet both the ' + BREAKOUT_MIN_DAY_PCT + '%+ move and ' + BREAKOUT_MIN_VOL_RATIO + 'x+ volume conditions.</td></tr>';
 }
 function setIntradayBreakoutSort(col) {
   if (intradayBreakoutSortCol === col) intradayBreakoutSortDir = -intradayBreakoutSortDir; else { intradayBreakoutSortCol = col; intradayBreakoutSortDir = col === 'sym' ? 1 : -1; }
