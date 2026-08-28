@@ -1301,7 +1301,8 @@ function renderRebound(stocks) {
       belowMA200.length + ' total sit below MA200, but ' + skippedWeakRR + ' were filtered out for R:R under ' + MIN_RR + '. ' +
       skippedNoTarget + ' are already above MA200 (nothing to reclaim). ' +
       (skippedNoData ? skippedNoData + ' skipped (insufficient bars for MA200/ATR).' : '') +
-      ' Feasibility checks whether the required move is mathematically reasonable given this stock\'s own volatility - not whether it is likely to happen, and it ignores trend direction entirely. Conviction (below) scores the reversal evidence that Feasibility cannot see.';
+      ' Feasibility checks whether the required move is mathematically reasonable given this stock\'s own volatility - not whether it is likely to happen, and it ignores trend direction entirely. ' +
+      'Conviction is a 4-factor checklist (0-100, equal-weighted): higher lows forming, RSI rising in a 25-45 recovering band, ATR contracting, and 5-day relative strength vs SPY. Rough read: above ~65 is real supporting evidence worth acting on now; below ~50 is mostly speculative with little backing; 50-65 is genuinely ambiguous - better to watch than act.';
   }
 
   el.innerHTML = rows.length ? rows.map(row => {
@@ -1364,7 +1365,8 @@ function renderReboundMA50(stocks) {
       confirmed.length + ' total meet the trend confirmation, but ' + skippedWeakRR + ' were filtered out for R:R under ' + MIN_RR_MA50 + '. ' +
       skippedNotConfirmed + ' do not meet the confirmation (below MA200, MA20 not above MA50, or already above MA50). ' +
       (skippedNoData ? skippedNoData + ' skipped (insufficient bars for MA20/50/200/ATR).' : '') +
-      ' Feasibility checks whether the required move is mathematically reasonable given this stock\'s own volatility - not whether it is likely to happen. Conviction (below) scores the reversal evidence that Feasibility cannot see.';
+      ' Feasibility checks whether the required move is mathematically reasonable given this stock\'s own volatility - not whether it is likely to happen. ' +
+      'Conviction is a 4-factor checklist (0-100, equal-weighted): higher lows forming, RSI rising in a 25-45 recovering band, ATR contracting, and 5-day relative strength vs SPY. Rough read: above ~65 is real supporting evidence worth entering now rather than waiting for the stock to also reclaim MA50 and show up in Bull Flag Watch instead - waiting sacrifices the earliest and often largest leg of the move for marginal extra confirmation. Below ~50 is mostly speculative - most of these never reach MA50 at all. 50-65 is genuinely ambiguous - better to watch than act.';
   }
 
   el.innerHTML = rows.length ? rows.map(row => {
