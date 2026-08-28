@@ -122,6 +122,7 @@
   <a href="#reboundPanel">↓ Rebound MA200</a>
   <a href="#uptrendPanel">↓ Uptrend MA50</a>
   <a href="#intradayBreakoutPanel">↓ Intraday Breakout Watch</a>
+  <a href="#bullFlagPanel">↓ Bull Flag Watch</a>
   <a href="#goldenPanel">↓ Golden cross</a>
   <a href="#deathPanel">↓ Death cross</a>
   <a href="#performancePanel">↓ Performance</a>
@@ -171,6 +172,17 @@
     <table>
       <thead><tr id="intradayBreakoutTheadRow"></tr></thead>
       <tbody id="intradayBreakoutBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel" id="bullFlagPanel">
+  <h2>Bull Flag Watch (uptrend pullback, volume drying up)</h2>
+  <div class="desc" id="bullFlagCaption">Stocks in a CONFIRMED uptrend (price above MA50, MA50 above MA200 - stacked averages) that have pulled back 3-14% from their own 20-day high, on volume that has dried up (last 5 days averaging under 85% of the prior 20-day average), with RSI cooled to a neutral 40-60 band - not overbought, not washed out. This is the opposite framing from Intraday Breakout Watch: instead of chasing a move already underway, this looks for stocks resting inside an intact uptrend before the next potential move, on the theory that shrinking volume during a pullback suggests sellers losing conviction rather than a real reversal. The 3-14% pullback band and the volume/RSI thresholds are reasonable starting defaults calibrated to this basket's typical volatility (most names here run 3-5% daily ATR) - they have NOT been backtested for optimal forward returns, and a pullback meeting every condition here is not guaranteed to resume higher; it can just as easily break down further. A short or empty list on a given day is expected, not a bug - all four conditions holding at once is meant to be uncommon.</div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr id="bullFlagTheadRow"></tr></thead>
+      <tbody id="bullFlagBody"></tbody>
     </table>
   </div>
 </div>
@@ -253,6 +265,7 @@ let sortCol = 'sig', sortDir = -1;
 let reboundSortCol = 'rr', reboundSortDir = -1;
 let reboundMA50SortCol = 'rr', reboundMA50SortDir = -1;
 let intradayBreakoutSortCol = 'volRatio', intradayBreakoutSortDir = -1;
+let bullFlagSortCol = 'offHigh', bullFlagSortDir = 1;
 let goldenSortCol = 'ord', goldenSortDir = 1;
 let deathSortCol = 'ord', deathSortDir = 1;
 
@@ -747,6 +760,7 @@ function render() {
   renderRebound(stocks);
   renderReboundMA50(stocks);
   renderIntradayBreakout(stocks);
+  renderBullFlag(stocks);
   renderGoldenCross(stocks);
   renderDeathCross(stocks);
 }
@@ -1469,6 +1483,78 @@ function renderIntradayBreakout(stocks) {
 }
 function setIntradayBreakoutSort(col) {
   if (intradayBreakoutSortCol === col) intradayBreakoutSortDir = -intradayBreakoutSortDir; else { intradayBreakoutSortCol = col; intradayBreakoutSortDir = col === 'sym' ? 1 : -1; }
+  render();
+}
+
+const BULL_FLAG_COLS = [
+  ['sym','Ticker'], ['price','Price'], ['daily','Day %'], ['offHigh','Off 20D High'],
+  ['volRatio','Vol vs Normal'], ['rsi','RSI (14D)'], ['wrsi','Weekly RSI']
+];
+const BULL_FLAG_MIN_PULLBACK = 3;    // % off the 20-day high, lower bound
+const BULL_FLAG_MAX_PULLBACK = 14;   // % off the 20-day high, upper bound
+const BULL_FLAG_MAX_VOL_RATIO = 0.85; // last 5d avg volume must be under this fraction of the prior 20d avg
+const BULL_FLAG_RSI_MIN = 40, BULL_FLAG_RSI_MAX = 60;
+
+function renderBullFlag(stocks) {
+  const el = document.getElementById('bullFlagBody');
+  if (!el) return;
+  const theadEl = document.getElementById('bullFlagTheadRow');
+  if (theadEl) {
+    theadEl.innerHTML = BULL_FLAG_COLS.map(c =>
+      '<th onclick="setBullFlagSort(\'' + c[0] + '\')">' + c[1] +
+      (bullFlagSortCol === c[0] ? ' <span class="arrow">' + (bullFlagSortDir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>'
+    ).join('');
+  }
+
+  let scanned = 0;
+  const candidates = [];
+  for (const t of stocks) {
+    const d = data[t];
+    if (!d || d.error || d.price == null || d.ma50 == null || d.ma200 == null || !d.highs || !d.volumes || d.volumes.length < 25) continue;
+    scanned++;
+    // Confirmed uptrend: price above MA50, MA50 above MA200 - stacked, not a broken-down stock
+    if (!(d.price > d.ma50 && d.ma50 > d.ma200)) continue;
+    const recentHigh = Math.max(...d.highs.slice(-20));
+    if (!recentHigh) continue;
+    const offHigh = (recentHigh - d.price) / recentHigh * 100;
+    if (offHigh < BULL_FLAG_MIN_PULLBACK || offHigh > BULL_FLAG_MAX_PULLBACK) continue;
+    const vols = d.volumes;
+    const last5Avg = vols.slice(-5).reduce((a, b) => a + b, 0) / 5;
+    const prior20Avg = vols.slice(-25, -5).reduce((a, b) => a + b, 0) / 20;
+    if (!(prior20Avg > 0)) continue;
+    const volRatio = last5Avg / prior20Avg;
+    if (volRatio >= BULL_FLAG_MAX_VOL_RATIO) continue;
+    if (d.rsi == null || d.rsi < BULL_FLAG_RSI_MIN || d.rsi > BULL_FLAG_RSI_MAX) continue;
+
+    candidates.push({ sym: t, price: d.price, daily: d.daily, offHigh: offHigh, volRatio: volRatio, rsi: d.rsi, wrsi: d.weeklyRsi });
+  }
+
+  candidates.sort((a, b) => {
+    const x = a[bullFlagSortCol], y = b[bullFlagSortCol];
+    if (bullFlagSortCol === 'sym') return bullFlagSortDir * String(x).localeCompare(String(y));
+    return bullFlagSortDir * ((x == null ? Infinity : x) - (y == null ? Infinity : y));
+  });
+
+  const caption = document.getElementById('bullFlagCaption');
+  if (caption) {
+    caption.textContent = candidates.length + ' of ' + scanned + ' tracked stocks are currently in an uptrend, ' +
+      BULL_FLAG_MIN_PULLBACK + '-' + BULL_FLAG_MAX_PULLBACK + '% off their 20-day high, with volume drying up ' +
+      '(under ' + Math.round(BULL_FLAG_MAX_VOL_RATIO * 100) + '% of normal) and RSI in the ' + BULL_FLAG_RSI_MIN + '-' + BULL_FLAG_RSI_MAX +
+      ' neutral band. These are reasonable starting defaults, not backtested for optimal forward returns - see the panel description above.';
+  }
+
+  el.innerHTML = candidates.length ? candidates.map(c =>
+    '<tr><td><a class="tklink" href="' + rallyLink(c.sym) + '" target="_blank" rel="noopener noreferrer">' + c.sym + '</a></td>' +
+    '<td>' + fmtPrice(c.price) + '</td>' +
+    '<td>' + pctHtml(c.daily, {sign:true, dp:1}) + '</td>' +
+    '<td><span style="font-weight:700;color:#374151">-' + c.offHigh.toFixed(1) + '%</span></td>' +
+    '<td><span style="font-weight:700;color:#374151">' + c.volRatio.toFixed(2) + 'x</span></td>' +
+    '<td>' + rsiBadge(c.rsi) + '</td>' +
+    '<td>' + rsiBadge(c.wrsi) + '</td></tr>'
+  ).join('') : '<tr><td colspan="7" class="empty">No stocks currently meet all four bull flag conditions.</td></tr>';
+}
+function setBullFlagSort(col) {
+  if (bullFlagSortCol === col) bullFlagSortDir = -bullFlagSortDir; else { bullFlagSortCol = col; bullFlagSortDir = col === 'sym' ? 1 : -1; }
   render();
 }
 
