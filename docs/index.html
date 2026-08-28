@@ -121,8 +121,8 @@
   <a href="#rotationPanel">↓ Rotation candidates</a>
   <a href="#reboundPanel">↓ Rebound MA200</a>
   <a href="#uptrendPanel">↓ Uptrend MA50</a>
-  <a href="#intradayBreakoutPanel">↓ Intraday Breakout Watch</a>
   <a href="#bullFlagPanel">↓ Bull Flag Watch</a>
+  <a href="#intradayBreakoutPanel">↓ Intraday Breakout Watch</a>
   <a href="#goldenPanel">↓ Golden cross</a>
   <a href="#deathPanel">↓ Death cross</a>
   <a href="#performancePanel">↓ Performance</a>
@@ -144,8 +144,8 @@
 </div>
 
 <div class="panel" id="reboundPanel">
-  <h2>Rebound setups to MA200, R:R 1.5+ (2-3 weeks view)</h2>
-  <div class="desc" id="reboundCaption">Stocks below MA200 with at least 1.5R reward for 1R risked. Stop = lowest low of last 12 bars (floored at 0.5x ATR14). Feasibility checks whether the required move is mathematically reasonable given this stock's own volatility (ATR scaled by sqrt of time) - it is not a predicted probability and does not account for trend direction. A high score just means the distance isn't statistically unusual for this stock; see Conviction for evidence the reversal is actually underway. Weekly RSI (not daily) is shown here since this is a 2-3 week setup — a daily reading can flip in a couple of sessions and doesn't match that holding period.</div>
+  <h2>Rebound setups to MA200, R:R 1.5+ (1 month view)</h2>
+  <div class="desc" id="reboundCaption">Stocks below MA200 with at least 1.5R reward for 1R risked. Stop = lowest low of last 12 bars (floored at 0.5x ATR14). Feasibility checks whether the required move is mathematically reasonable given this stock's own volatility (ATR scaled by sqrt of time) - it is not a predicted probability and does not account for trend direction. A high score just means the distance isn't statistically unusual for this stock; see Conviction for evidence the reversal is actually underway. Weekly RSI (not daily) is shown here since this is a 1 month setup — a daily reading can flip in a couple of sessions and doesn't match that holding period.</div>
   <div style="overflow-x:auto">
     <table>
       <thead><tr id="reboundTheadRow"></tr></thead>
@@ -155,7 +155,7 @@
 </div>
 
 <div class="panel" id="uptrendPanel">
-  <h2>Uptrend continuation to MA50, R:R 1.5+ (2-3 weeks view)</h2>
+  <h2>Uptrend continuation to MA50, R:R 1.5+ (1 month view)</h2>
   <div class="desc" id="reboundMA50Caption">Stocks that have reclaimed MA200 (price above it) with MA20 above MA50 (stacked averages, confirms trend rather than a single-day poke above MA200), still below MA50, and at least 1.5R reward for 1R risked to reach it. Same stop/feasibility methodology as the MA200 table: feasibility checks whether the required move is mathematically reasonable given this stock's own volatility, not whether it is likely to happen. See Conviction for reversal evidence.</div>
   <div style="overflow-x:auto">
     <table>
@@ -165,24 +165,24 @@
   </div>
 </div>
 
-<div class="panel" id="intradayBreakoutPanel">
-  <h2>Intraday Breakout Watch (volume-confirmed, 5%+ in the green)</h2>
-  <div class="desc" id="intradayBreakoutCaption">Stocks currently up 5%+ on the day AND trading at least 2x their trailing 20-day MEDIAN volume (median, not mean, so one past outlier day like an earnings spike can't quietly inflate the baseline). Neither the day% threshold nor "Off Today's High" tells you whether a move is already used up — a stock sitting near its own intraday high can mean it's still climbing, OR that it already popped once and has been flat near that ceiling ever since with nothing forcing it further; the two look identical on that metric alone. "Move vs Typical Day" compares today's move to the stock's own normal daily range (ATR14) as a MAGNITUDE-only read — deliberately shown in one neutral color, not red/green, because a large number here does not mean "due to reverse" or "cut here." A stock already at 5x its typical day can absolutely run to 8x or 10x on a strong catalyst (an earnings beat, for instance) just as easily as it can pull back — this number carries no directional information either way, it only says how large today is for THIS stock compared to its own normal, which is mainly useful for comparing across tickers whose normal volatility differs a lot. None of the columns here predict what happens next. This is DESCRIPTIVE, not predictive: it only flags a move already underway. Before market close, "Volume vs 20d median" is pace-adjusted for how much of the session has elapsed, so it's an extrapolation, not a guarantee it holds through the close.</div>
-  <div style="overflow-x:auto">
-    <table>
-      <thead><tr id="intradayBreakoutTheadRow"></tr></thead>
-      <tbody id="intradayBreakoutBody"></tbody>
-    </table>
-  </div>
-</div>
-
 <div class="panel" id="bullFlagPanel">
-  <h2>Bull Flag Watch (uptrend pullback, volume drying up)</h2>
+  <h2>Bull Flag Watch (uptrend pullback, volume drying up, 2-3 weeks view)</h2>
   <div class="desc" id="bullFlagCaption">Stocks in a CONFIRMED uptrend (price above MA50, MA50 above MA200 - stacked averages) that have pulled back 3-14% from their own 20-day high, on volume that has dried up (last 5 days averaging under 85% of the prior 20-day average), with RSI cooled to a neutral 40-60 band - not overbought, not washed out. This is the opposite framing from Intraday Breakout Watch: instead of chasing a move already underway, this looks for stocks resting inside an intact uptrend before the next potential move, on the theory that shrinking volume during a pullback suggests sellers losing conviction rather than a real reversal. The 3-14% pullback band and the volume/RSI thresholds are reasonable starting defaults calibrated to this basket's typical volatility (most names here run 3-5% daily ATR) - they have NOT been backtested for optimal forward returns, and a pullback meeting every condition here is not guaranteed to resume higher; it can just as easily break down further. A short or empty list on a given day is expected, not a bug - all four conditions holding at once is meant to be uncommon.</div>
   <div style="overflow-x:auto">
     <table>
       <thead><tr id="bullFlagTheadRow"></tr></thead>
       <tbody id="bullFlagBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel" id="intradayBreakoutPanel">
+  <h2>Intraday Breakout Watch (volume-confirmed, 5%+ in the green, 1 week / short-term view)</h2>
+  <div class="desc" id="intradayBreakoutCaption">Stocks currently up 5%+ on the day AND trading at least 2x their trailing 20-day MEDIAN volume (median, not mean, so one past outlier day like an earnings spike can't quietly inflate the baseline). Neither the day% threshold nor "Off Today's High" tells you whether a move is already used up — a stock sitting near its own intraday high can mean it's still climbing, OR that it already popped once and has been flat near that ceiling ever since with nothing forcing it further; the two look identical on that metric alone. "Move vs Typical Day" compares today's move to the stock's own normal daily range (ATR14) as a MAGNITUDE-only read — deliberately shown in one neutral color, not red/green, because a large number here does not mean "due to reverse" or "cut here." A stock already at 5x its typical day can absolutely run to 8x or 10x on a strong catalyst (an earnings beat, for instance) just as easily as it can pull back — this number carries no directional information either way, it only says how large today is for THIS stock compared to its own normal, which is mainly useful for comparing across tickers whose normal volatility differs a lot. None of the columns here predict what happens next. This is DESCRIPTIVE, not predictive: it only flags a move already underway. Before market close, "Volume vs 20d median" is pace-adjusted for how much of the session has elapsed, so it's an extrapolation, not a guarantee it holds through the close.</div>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr id="intradayBreakoutTheadRow"></tr></thead>
+      <tbody id="intradayBreakoutBody"></tbody>
     </table>
   </div>
 </div>
