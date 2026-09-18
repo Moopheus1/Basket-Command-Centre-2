@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Basket Command Center 2</title>
+<title>Basket Command Center 3</title>
 <style>
   :root { color-scheme: light; }
   html { scroll-behavior: smooth; }
@@ -111,19 +111,18 @@
 <div class="header-row">
   <div>
     <div class="eyebrow">Tech, AI, cybersecurity, software, and ETF monitor</div>
-    <h1>Basket Command Center 2</h1>
+    <h1>Basket Command Center 3</h1>
     <div class="sub" id="subtitle">End-of-day quotes, performance, and benchmark comparison.</div>
   </div>
   <div class="bench-chips" id="benchChips"></div>
 </div>
 
 <div class="jumpbar">
+  <a href="#goldenPanel">↓ Golden cross &middot; #1</a>
+  <a href="#rsDivPanel">↓ RS Leaders &middot; #2</a>
+  <a href="#bullFlagPanel">↓ Bull Flag Watch &middot; #3</a>
+  <a href="#intradayBreakoutPanel">↓ Intraday Breakout &middot; #4</a>
   <a href="#rotationPanel">↓ Rotation candidates</a>
-  <a href="#reboundPanel">↓ Rebound MA200</a>
-  <a href="#uptrendPanel">↓ Uptrend MA50</a>
-  <a href="#bullFlagPanel">↓ Bull Flag Watch</a>
-  <a href="#intradayBreakoutPanel">↓ Intraday Breakout Watch</a>
-  <a href="#goldenPanel">↓ Golden cross</a>
   <a href="#deathPanel">↓ Death cross</a>
   <a href="#performancePanel">↓ Performance</a>
   <a href="#watchlistPanel">↓ Watchlist</a>
@@ -132,42 +131,33 @@
 
 <div class="statgrid" id="stats"></div>
 
-<div class="panel" id="rotationPanel">
-  <h2>Rotation candidates</h2>
-  <div class="desc">Groups your tracked tickers by sector (from data.json) and narrows them to two setups: GOLDEN CROSS (MA50 crossed above MA200 recently, or is converging toward it) and BREAKOUT WATCH (within 10% of the 52-week high). A sector only qualifies as a Candidate if at least 30% of its tracked stocks meet one of those AND at least 50% have RSI between 40&ndash;65 — that RSI band is the "not overly bullish, not overly bearish" filter: above it you risk buying an extended move (exit liquidity for whoever got in first), below it there's no confirmed reversal yet. This is a structural filter, not a validated signal — nothing here has been backtested against forward returns, and your price history (needed for the golden-cross math) only runs about 9-10 months back, not enough to test across a full market cycle. It tells you what currently matches the setup you described, not what will happen next. Sectors with fewer than 2 tracked stocks never qualify — not enough sample to mean anything.</div>
+<div class="desc" style="margin:0 0 6px;font-weight:600">Panels are ordered by BACKTESTED hit rate (entry next open, target = entry + 1.5&times;ATR14, no stop, 20-session max hold, Jan&ndash;Aug 2026). Buying on a RANDOM day hits that same target <strong>62.3%</strong> of the time (n=799) &mdash; that is the number every panel below must be read against. A 78% hit rate is roughly +16 points of edge, not 78 points of skill. One regime only: an 8-month tech bull market. In a flat or falling market these converge toward each other and the order may not hold. Bull Flag and Intraday Breakout now use CMF(20) &gt; 0.20 in place of their original raw-volume rules; their numbers above are post-swap. The top three (79.2 / 78.3 / 77.9) are within noise of each other on samples of 53&ndash;95 &mdash; read the panels as two tiers, not four ranks, and note that these figures come from a single 8-month sample that has now been searched many times over.</div>
+
+<div class="panel" id="goldenPanel">
+  <h2><span style="background:#0a9e5c;color:#fff;border-radius:6px;padding:3px 10px;font-size:15px;font-weight:700;margin-right:10px;vertical-align:middle">#1 &middot; 79.2% hit</span>Golden cross zone (MA50 &times; MA200)</h2>
+  <div class="desc" id="goldenCaption">Stocks whose MA50 crossed above MA200 within the last 20 sessions (bullish regime change), or where MA50 is still below MA200 but within 2% and converging over the last 5 sessions (approaching). A cross is a lagging confirmation, not an entry signal on its own. <strong>Backtest:</strong> highest hit rate of the four signal panels — 79.2% reached entry + 1.5&times;ATR14 within 20 sessions (n=53), median 5 sessions, median outcome +7.29%, worst month 66.7% (the most stable of any panel). Against a 62.3% random-entry baseline that is ~+17 points of edge. It is also the ONLY panel that survives a stop-loss system test (+0.35R expectancy, profit factor 1.83, 5.6R max drawdown). Small sample (53 signals, ~7.6/month) and one regime — it lost money in October in an earlier test.</div>
   <div style="overflow-x:auto">
     <table>
-      <thead><tr id="rotationTheadRow"></tr></thead>
-      <tbody id="rotationBody"></tbody>
+      <thead><tr id="goldenTheadRow"></tr></thead>
+      <tbody id="goldenBody"></tbody>
     </table>
   </div>
 </div>
 
-<div class="panel" id="reboundPanel">
-  <h2>Rebound setups to MA200, R:R 1.5+ (1 month view)</h2>
-  <div class="desc" id="reboundCaption">Stocks below MA200 with at least 1.5R reward for 1R risked. Stop = lowest low of last 12 bars (floored at 0.5x ATR14). Feasibility checks whether the required move is mathematically reasonable given this stock's own volatility (ATR scaled by sqrt of time) - it is not a predicted probability and does not account for trend direction. A high score just means the distance isn't statistically unusual for this stock; see Conviction for evidence the reversal is actually underway. Weekly RSI (not daily) is shown here since this is a 1 month setup — a daily reading can flip in a couple of sessions and doesn't match that holding period.</div>
+<div class="panel" id="rsDivPanel">
+  <h2><span style="background:#0a9e5c;color:#fff;border-radius:6px;padding:3px 10px;font-size:15px;font-weight:700;margin-right:10px;vertical-align:middle">#2 &middot; 77.9% hit</span>RS Leaders — relative strength divergence (target-only, ~1 month view)</h2>
+  <div class="desc" id="rsDivCaption">Stocks whose relative-strength line vs QQQ (price &divide; QQQ) has made a NEW 63-day high while the stock's own PRICE has not. The stock is outperforming the index on a relative basis before that strength shows up in its own chart — the theory is accumulation visible in relative terms first. Target = entry + 1.5&times;ATR14, which BACKTESTED at a 77.9% hit rate within 20 sessions across 95 deduplicated signals (Jan–Aug), median 6 sessions to target, median outcome +6.05%, positive at exit 80.0%. CONTEXT THAT MATTERS: buying on a RANDOM day hits the same 1.5&times;ATR target 62.3% of the time (n=799), so the real edge here is about +15.6 points, not +78. Ranked #2 of 4 panels. It also FAILS a stop-loss test (+0.08R expectancy, worse than random entry at +0.10R) — trade it target-only or not at all. Monthly hit rate ranged 60–100% with no month below 60%. READ THE TAIL: this is a TARGET-ONLY setup with NO STOP — the worst single outcome in the backtest was −35.8% and the 10th percentile was −10.5%. A high hit rate is not a high expectancy; when this fails it fails large and there is nothing in the rule that cuts it. The same signal tested with a 1.5&times;ATR stop produced +0.08R expectancy, WORSE than buying randomly every 5 days (+0.10R) — the names it selects are choppy and get stopped out on the way to a good 20-day price. One regime only (~8 months, tech bull market), overlapping windows, no slippage or commissions modelled. Position sizing is yours; this panel does not tell you how much to risk.</div>
   <div style="overflow-x:auto">
     <table>
-      <thead><tr id="reboundTheadRow"></tr></thead>
-      <tbody id="reboundBody"></tbody>
-    </table>
-  </div>
-</div>
-
-<div class="panel" id="uptrendPanel">
-  <h2>Uptrend continuation to MA50, R:R 1.5+ (1 month view)</h2>
-  <div class="desc" id="reboundMA50Caption">Stocks that have reclaimed MA200 (price above it) with MA20 above MA50 (stacked averages, confirms trend rather than a single-day poke above MA200), still below MA50, and at least 1.5R reward for 1R risked to reach it. Same stop/feasibility methodology as the MA200 table: feasibility checks whether the required move is mathematically reasonable given this stock's own volatility, not whether it is likely to happen. See Conviction for reversal evidence.</div>
-  <div style="overflow-x:auto">
-    <table>
-      <thead><tr id="reboundMA50TheadRow"></tr></thead>
-      <tbody id="reboundMA50Body"></tbody>
+      <thead><tr id="rsDivTheadRow"></tr></thead>
+      <tbody id="rsDivBody"></tbody>
     </table>
   </div>
 </div>
 
 <div class="panel" id="bullFlagPanel">
-  <h2>Bull Flag Watch (uptrend pullback, selling volume drying up, 2-3 weeks view)</h2>
-  <div class="desc" id="bullFlagCaption">Stocks in a CONFIRMED uptrend (price above MA50, MA50 above MA200 - stacked averages) that have pulled back 3-14% from their own 20-day high, with SELLING volume drying up specifically (not just total volume - average volume on down-closing days over the last 5 sessions under 85% of the prior 20 sessions' down-day average), with RSI cooled to a neutral 40-60 band - not overbought, not washed out. "Selling volume" is a standard proxy (a day's whole volume counts as selling only if it closed lower than the day before), not true tick-level buy/sell data. This is the opposite framing from Intraday Breakout Watch: instead of chasing a move already underway, this looks for stocks resting inside an intact uptrend before the next potential move, on the theory that fading selling volume during a pullback suggests sellers losing conviction rather than a real reversal. The 3-14% pullback band and the volume/RSI thresholds are reasonable starting defaults calibrated to this basket's typical volatility (most names here run 3-5% daily ATR) - they have NOT been backtested for optimal forward returns, and a pullback meeting every condition here is not guaranteed to resume higher; it can just as easily break down further. A short or empty list on a given day is expected, not a bug - all four conditions holding at once is meant to be uncommon.</div>
+  <h2><span style="background:#f59e0b;color:#fff;border-radius:6px;padding:3px 10px;font-size:15px;font-weight:700;margin-right:10px;vertical-align:middle">#3 &middot; 78.3% hit</span>Bull Flag Watch (uptrend pullback, selling volume drying up, 2-3 weeks view)</h2>
+  <div class="desc" id="bullFlagCaption">Stocks in a CONFIRMED uptrend (price above MA50, MA50 above MA200 - stacked averages) that have pulled back 3-14% from their own 20-day high, with SELLING volume drying up specifically (not just total volume - average volume on down-closing days over the last 5 sessions under 85% of the prior 20 sessions' down-day average), with RSI cooled to a neutral 40-60 band - not overbought, not washed out. "Selling volume" is a standard proxy (a day's whole volume counts as selling only if it closed lower than the day before), not true tick-level buy/sell data. This is the opposite framing from Intraday Breakout Watch: instead of chasing a move already underway, this looks for stocks resting inside an intact uptrend before the next potential move, on the theory that fading selling volume during a pullback suggests sellers losing conviction rather than a real reversal. The 3-14% pullback band and the volume/RSI thresholds are reasonable starting defaults calibrated to this basket's typical volatility (most names here run 3-5% daily ATR) - they have NOT been backtested for optimal forward returns, and a pullback meeting every condition here is not guaranteed to resume higher; it can just as easily break down further. A short or empty list on a given day is expected, not a bug - all four conditions holding at once is meant to be uncommon. <strong>CHANGED:</strong> the down-day selling-volume rule no longer filters this panel — it was replaced by CMF(20) &gt; 0.20 (sustained buying pressure). The old ratio is still shown in grey for reference but gates nothing. <strong>Backtest of the swap:</strong> hit rate 70.1% &rarr; <strong>78.3%</strong> (n=60), out-of-sample drift +4.2 &rarr; +0.4, median max-adverse-excursion &minus;9.19% &rarr; &minus;6.60%, and the worst month lifted from 33.3% (below the random baseline) to 60.0%. Cost: signal count falls from 154 to 60, so expect a shorter list.</div>
   <div style="overflow-x:auto">
     <table>
       <thead><tr id="bullFlagTheadRow"></tr></thead>
@@ -177,8 +167,8 @@
 </div>
 
 <div class="panel" id="intradayBreakoutPanel">
-  <h2>Intraday Breakout Watch (volume-confirmed, 5%+ in the green, 1 week / short-term view)</h2>
-  <div class="desc" id="intradayBreakoutCaption">Stocks currently up 5%+ on the day AND trading at least 2x their trailing 20-day MEDIAN volume (median, not mean, so one past outlier day like an earnings spike can't quietly inflate the baseline). Neither the day% threshold nor "Off Today's High" tells you whether a move is already used up — a stock sitting near its own intraday high can mean it's still climbing, OR that it already popped once and has been flat near that ceiling ever since with nothing forcing it further; the two look identical on that metric alone. "Move vs Typical Day" compares today's move to the stock's own normal daily range (ATR14) as a MAGNITUDE-only read — deliberately shown in one neutral color, not red/green, because a large number here does not mean "due to reverse" or "cut here." A stock already at 5x its typical day can absolutely run to 8x or 10x on a strong catalyst (an earnings beat, for instance) just as easily as it can pull back — this number carries no directional information either way, it only says how large today is for THIS stock compared to its own normal, which is mainly useful for comparing across tickers whose normal volatility differs a lot. None of the columns here predict what happens next. This is DESCRIPTIVE, not predictive: it only flags a move already underway. Before market close, "Volume vs 20d median" is pace-adjusted for how much of the session has elapsed, so it's an extrapolation, not a guarantee it holds through the close.</div>
+  <h2><span style="background:#f59e0b;color:#fff;border-radius:6px;padding:3px 10px;font-size:15px;font-weight:700;margin-right:10px;vertical-align:middle">#4 &middot; 74.6% hit</span>Intraday Breakout Watch (volume-confirmed, 5%+ in the green, 1 week / short-term view)</h2>
+  <div class="desc" id="intradayBreakoutCaption">Stocks currently up 5%+ on the day AND trading at least 2x their trailing 20-day MEDIAN volume (median, not mean, so one past outlier day like an earnings spike can't quietly inflate the baseline). Neither the day% threshold nor "Off Today's High" tells you whether a move is already used up — a stock sitting near its own intraday high can mean it's still climbing, OR that it already popped once and has been flat near that ceiling ever since with nothing forcing it further; the two look identical on that metric alone. "Move vs Typical Day" compares today's move to the stock's own normal daily range (ATR14) as a MAGNITUDE-only read — deliberately shown in one neutral color, not red/green, because a large number here does not mean "due to reverse" or "cut here." A stock already at 5x its typical day can absolutely run to 8x or 10x on a strong catalyst (an earnings beat, for instance) just as easily as it can pull back — this number carries no directional information either way, it only says how large today is for THIS stock compared to its own normal, which is mainly useful for comparing across tickers whose normal volatility differs a lot. None of the columns here predict what happens next. This is DESCRIPTIVE, not predictive: it only flags a move already underway. Before market close, "Volume vs 20d median" is pace-adjusted for how much of the session has elapsed, so it's an extrapolation, not a guarantee it holds through the close. <strong>CHANGED:</strong> the 2x-median volume rule no longer filters this panel — it was replaced by CMF(20) &gt; 0.20. The volume ratio is still shown in grey for reference but gates nothing; the 5%+ day rule is unchanged. <strong>Backtest of the swap:</strong> hit rate 68.5% &rarr; <strong>74.6%</strong> (n=118), and out-of-sample drift flipped from &minus;8.9 to +1.7 — it stops decaying. Median max-adverse-excursion improves &minus;13.72% &rarr; &minus;11.14%, still the deepest of the four panels. This remains the weakest panel and it is still DESCRIPTIVE: holding past day 1 showed no edge in the original test (+0.90% median day 1 decaying to +0.09% by day 5).</div>
   <div style="overflow-x:auto">
     <table>
       <thead><tr id="intradayBreakoutTheadRow"></tr></thead>
@@ -187,13 +177,13 @@
   </div>
 </div>
 
-<div class="panel" id="goldenPanel">
-  <h2>Golden cross zone (MA50 &times; MA200)</h2>
-  <div class="desc" id="goldenCaption">Stocks whose MA50 crossed above MA200 within the last 20 sessions (bullish regime change), or where MA50 is still below MA200 but within 2% and converging over the last 5 sessions (approaching). A cross is a lagging confirmation, not an entry signal on its own.</div>
+<div class="panel" id="rotationPanel">
+  <h2>Rotation candidates</h2>
+  <div class="desc">Groups your tracked tickers by sector (from data.json) and narrows them to two setups: GOLDEN CROSS (MA50 crossed above MA200 recently, or is converging toward it) and BREAKOUT WATCH (within 10% of the 52-week high). A sector only qualifies as a Candidate if at least 30% of its tracked stocks meet one of those AND at least 50% have RSI between 40&ndash;65 — that RSI band is the "not overly bullish, not overly bearish" filter: above it you risk buying an extended move (exit liquidity for whoever got in first), below it there's no confirmed reversal yet. This is a structural filter, not a validated signal — nothing here has been backtested against forward returns, and your price history (needed for the golden-cross math) only runs about 9-10 months back, not enough to test across a full market cycle. It tells you what currently matches the setup you described, not what will happen next. Sectors with fewer than 2 tracked stocks never qualify — not enough sample to mean anything.</div>
   <div style="overflow-x:auto">
     <table>
-      <thead><tr id="goldenTheadRow"></tr></thead>
-      <tbody id="goldenBody"></tbody>
+      <thead><tr id="rotationTheadRow"></tr></thead>
+      <tbody id="rotationBody"></tbody>
     </table>
   </div>
 </div>
@@ -239,8 +229,6 @@
 
 <div class="jumpbar" style="margin:14px 0 20px">
   <a href="#top">↑ Top</a>
-  <a href="#reboundPanel">Rebound MA200</a>
-  <a href="#uptrendPanel">Uptrend MA50</a>
   <a href="#goldenPanel">Golden cross</a>
   <a href="#deathPanel">Death cross</a>
   <a href="#performancePanel">Performance</a>
@@ -481,8 +469,10 @@ function computeMetrics(rawBars) {
     higherLows: totalLows > 0 ? higherLows / totalLows : null,
     rsiPrev: rsiPrev,
     closes: closes,
+    times: bars.map(b => b.time),
     volumes: bars.map(b => b.volume),
     highs: bars.map(b => b.high),
+    lows: bars.map(b => b.low),
     swingLow: swingLow
   };
 }
@@ -757,8 +747,7 @@ function render() {
   renderDetailed(spy, tickers);
   renderTable(spy, tickers);
   renderRotationCandidates(stocks);
-  renderRebound(stocks);
-  renderReboundMA50(stocks);
+  renderRSDivergence(stocks);
   renderIntradayBreakout(stocks);
   renderBullFlag(stocks);
   renderGoldenCross(stocks);
@@ -1265,61 +1254,6 @@ const REBOUND_COLS = [
   ['stop','Stop (12D low)'], ['rr','R:R'], ['feas','Feasibility'], ['conviction','Conviction'],
   ['target','Analyst Target'], ['earnings','Next Earnings'], ['wrsi','Weekly RSI']
 ];
-function renderRebound(stocks) {
-  const el = document.getElementById('reboundBody');
-  if (!el) return;
-  const theadEl = document.getElementById('reboundTheadRow');
-  if (theadEl) {
-    theadEl.innerHTML = REBOUND_COLS.map(c =>
-      '<th onclick="setReboundSort(\'' + c[0] + '\')">' + c[1] +
-      (reboundSortCol === c[0] ? ' <span class="arrow">' + (reboundSortDir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>'
-    ).join('');
-  }
-
-  const belowMA200 = stocks.filter(t => data[t] && data[t].rebound && !data[t].rebound.none);
-  const eligible = belowMA200.filter(t => data[t].rebound.rr != null && data[t].rebound.rr >= MIN_RR);
-  const skippedWeakRR = belowMA200.length - eligible.length;
-  const skippedNoTarget = stocks.filter(t => data[t] && data[t].rebound && data[t].rebound.none).length;
-  const skippedNoData = stocks.filter(t => data[t] && !data[t].rebound).length;
-
-  const rows = eligible.map(t => {
-    const d = data[t], r = data[t].rebound, f = fund[t] || {};
-    const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
-    return { sym: t, price: d.price, ma: r.target, dist: pct(r.target, d.price), stop: r.swingLow,
-             rr: r.rr, feas: r.feasibility, conviction: d.reboundConviction, target: targetUpside,
-             earnings: f.nextEarnings, wrsi: d.weeklyRsi, _r: r };
-  });
-  rows.sort((a, b) => {
-    const x = a[reboundSortCol], y = b[reboundSortCol];
-    if (reboundSortCol === 'sym') return reboundSortDir * String(x).localeCompare(String(y));
-    return reboundSortDir * ((x == null ? -Infinity : x) - (y == null ? -Infinity : y));
-  });
-
-  const caption = document.getElementById('reboundCaption');
-  if (caption) {
-    caption.textContent = rows.length + ' of ' + stocks.length + ' stocks are below MA200 with R:R >= ' + MIN_RR + '. ' +
-      belowMA200.length + ' total sit below MA200, but ' + skippedWeakRR + ' were filtered out for R:R under ' + MIN_RR + '. ' +
-      skippedNoTarget + ' are already above MA200 (nothing to reclaim). ' +
-      (skippedNoData ? skippedNoData + ' skipped (insufficient bars for MA200/ATR).' : '') +
-      ' Feasibility checks whether the required move is mathematically reasonable given this stock\'s own volatility - not whether it is likely to happen, and it ignores trend direction entirely. ' +
-      'Conviction is a 4-factor checklist (0-100, equal-weighted): higher lows forming, RSI rising in a 25-45 recovering band, ATR contracting, and 5-day relative strength vs SPY. Rough read: above ~65 is real supporting evidence worth acting on now; below ~50 is mostly speculative with little backing; 50-65 is genuinely ambiguous - better to watch than act.';
-  }
-
-  el.innerHTML = rows.length ? rows.map(row => {
-    const r = row._r;
-    return '<tr><td><a class="tklink" href="' + rallyLink(row.sym) + '" target="_blank" rel="noopener noreferrer">' + row.sym + '</a></td>' +
-      '<td>' + fmtPrice(row.price) + '</td>' +
-      '<td>' + fmtPrice(row.ma) + '</td>' +
-      '<td>' + pctHtml(row.dist, {arrow:false, sign:true, dp:1}) + '</td>' +
-      '<td>' + fmtPrice(row.stop) + (r.tightStop ? ' <span title="Swing low was tighter than 0.5x ATR - floored to avoid an inflated R:R" style="color:#92400e">*</span>' : '') + '</td>' +
-      '<td>' + rrBadge(row.rr) + '</td>' +
-      '<td>' + feasBadge(row.feas) + '</td>' +
-      '<td>' + scoreBadge(row.conviction) + '</td>' +
-      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td>' +
-      '<td>' + fmtEarnings(row.earnings) + '</td>' +
-      '<td>' + rsiBadge(row.wrsi) + '</td></tr>';
-  }).join('') : '<tr><td colspan="11" class="empty">No stocks below MA200 currently clear an R:R of ' + MIN_RR + '+.</td></tr>';
-}
 function setReboundSort(col) {
   if (reboundSortCol === col) reboundSortDir = -reboundSortDir; else { reboundSortCol = col; reboundSortDir = col === 'sym' ? 1 : -1; }
   render();
@@ -1329,72 +1263,48 @@ const REBOUND_MA50_COLS = [
   ['stop','Stop (12D low)'], ['rr','R:R'], ['feas','Feasibility'], ['conviction','Conviction'],
   ['target','Analyst Target'], ['earnings','Next Earnings'], ['wrsi','Weekly RSI']
 ];
-function renderReboundMA50(stocks) {
-  const el = document.getElementById('reboundMA50Body');
-  if (!el) return;
-  const theadEl = document.getElementById('reboundMA50TheadRow');
-  if (theadEl) {
-    theadEl.innerHTML = REBOUND_MA50_COLS.map(c =>
-      '<th onclick="setReboundMA50Sort(\'' + c[0] + '\')">' + c[1] +
-      (reboundMA50SortCol === c[0] ? ' <span class="arrow">' + (reboundMA50SortDir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>'
-    ).join('');
-  }
-
-  const confirmed = stocks.filter(t => data[t] && data[t].reboundMA50 && !data[t].reboundMA50.none);
-  const eligible = confirmed.filter(t => data[t].reboundMA50.rr != null && data[t].reboundMA50.rr >= MIN_RR_MA50);
-  const skippedWeakRR = confirmed.length - eligible.length;
-  const skippedNotConfirmed = stocks.filter(t => data[t] && data[t].reboundMA50 && data[t].reboundMA50.none).length;
-  const skippedNoData = stocks.filter(t => data[t] && !data[t].reboundMA50).length;
-
-  const rows = eligible.map(t => {
-    const d = data[t], r = data[t].reboundMA50, f = fund[t] || {};
-    const targetUpside = (f.targetMean != null && d.price != null) ? pct(f.targetMean, d.price) : null;
-    return { sym: t, price: d.price, ma: r.target, dist: pct(r.target, d.price), stop: r.swingLow,
-             rr: r.rr, feas: r.feasibility, conviction: d.reboundConviction, target: targetUpside,
-             earnings: f.nextEarnings, wrsi: d.weeklyRsi, _r: r };
-  });
-  rows.sort((a, b) => {
-    const x = a[reboundMA50SortCol], y = b[reboundMA50SortCol];
-    if (reboundMA50SortCol === 'sym') return reboundMA50SortDir * String(x).localeCompare(String(y));
-    return reboundMA50SortDir * ((x == null ? -Infinity : x) - (y == null ? -Infinity : y));
-  });
-
-  const caption = document.getElementById('reboundMA50Caption');
-  if (caption) {
-    caption.textContent = rows.length + ' of ' + stocks.length + ' stocks have reclaimed MA200 with MA20 > MA50 (stacked, trend-confirmed) and R:R >= ' + MIN_RR_MA50 + ' to MA50. ' +
-      confirmed.length + ' total meet the trend confirmation, but ' + skippedWeakRR + ' were filtered out for R:R under ' + MIN_RR_MA50 + '. ' +
-      skippedNotConfirmed + ' do not meet the confirmation (below MA200, MA20 not above MA50, or already above MA50). ' +
-      (skippedNoData ? skippedNoData + ' skipped (insufficient bars for MA20/50/200/ATR).' : '') +
-      ' Feasibility checks whether the required move is mathematically reasonable given this stock\'s own volatility - not whether it is likely to happen. ' +
-      'Conviction is a 4-factor checklist (0-100, equal-weighted): higher lows forming, RSI rising in a 25-45 recovering band, ATR contracting, and 5-day relative strength vs SPY. Rough read: above ~65 is real supporting evidence worth entering now rather than waiting for the stock to also reclaim MA50 and show up in Bull Flag Watch instead - waiting sacrifices the earliest and often largest leg of the move for marginal extra confirmation. Below ~50 is mostly speculative - most of these never reach MA50 at all. 50-65 is genuinely ambiguous - better to watch than act.';
-  }
-
-  el.innerHTML = rows.length ? rows.map(row => {
-    const r = row._r;
-    return '<tr><td><a class="tklink" href="' + rallyLink(row.sym) + '" target="_blank" rel="noopener noreferrer">' + row.sym + '</a></td>' +
-      '<td>' + fmtPrice(row.price) + '</td>' +
-      '<td>' + fmtPrice(row.ma) + '</td>' +
-      '<td>' + pctHtml(row.dist, {arrow:false, sign:true, dp:1}) + '</td>' +
-      '<td>' + fmtPrice(row.stop) + (r.tightStop ? ' <span title="Swing low was tighter than 0.5x ATR - floored to avoid an inflated R:R" style="color:#92400e">*</span>' : '') + '</td>' +
-      '<td>' + rrBadge(row.rr) + '</td>' +
-      '<td>' + feasBadge(row.feas) + '</td>' +
-      '<td>' + scoreBadge(row.conviction) + '</td>' +
-      '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td>' +
-      '<td>' + fmtEarnings(row.earnings) + '</td>' +
-      '<td>' + rsiBadge(row.wrsi) + '</td></tr>';
-  }).join('') : '<tr><td colspan="11" class="empty">No trend-confirmed (MA200 reclaimed, MA20>MA50) stocks currently clear an R:R of ' + MIN_RR_MA50 + '+ to MA50.</td></tr>';
-}
 function setReboundMA50Sort(col) {
   if (reboundMA50SortCol === col) reboundMA50SortDir = -reboundMA50SortDir; else { reboundMA50SortCol = col; reboundMA50SortDir = col === 'sym' ? 1 : -1; }
   render();
 }
 
+
+// ---- Chaikin Money Flow (20) ----
+// Weights each day's volume by where the close sat INSIDE that day's range, so a
+// heavy day closing near its high (absorption by buyers) scores differently from a
+// heavy day closing near its low (distribution). Plain "volume vs median" scores
+// both identically, which is why it was replaced here.
+// Backtest (entry next open, target = entry + 1.5xATR14, no stop, 20-session max):
+//   today vol >= 2x median : 66.7% hit, +2.6 vs a 62.3-64.1% random-entry baseline, -10.1 pt out-of-sample drift
+//   CMF20 > 0.20           : 73.9% hit, +9.7, and +2.2 pt drift (the only construction that improved out-of-sample)
+const CMF_PERIOD = 20, CMF_MIN = 0.20;
+function computeCMF(sym) {
+  const d = data[sym];
+  if (!d || d.error || !d.highs || !d.lows || !d.closes || !d.volumes) return null;
+  const n = d.closes.length;
+  if (n < CMF_PERIOD) return null;
+  let mfv = 0, vol = 0;
+  for (let i = n - CMF_PERIOD; i < n; i++) {
+    const h = d.highs[i], l = d.lows[i], c = d.closes[i], v = d.volumes[i];
+    if (h == null || l == null || c == null || !v) continue;
+    const range = h - l;
+    const mult = range === 0 ? 0 : ((c - l) - (h - c)) / range;   // +1 close at high, -1 close at low
+    mfv += mult * v; vol += v;
+  }
+  return vol > 0 ? mfv / vol : null;
+}
+function cmfBadge(v) {
+  if (v == null) return '<span style="color:#6b7280">—</span>';
+  const col = v >= 0.20 ? '#0a9e5c' : v >= 0.05 ? '#6b7280' : '#e5484d';
+  return '<span style="font-weight:700;color:' + col + '" title="Chaikin Money Flow over 20 sessions. Above +0.20 = sustained buying pressure (close landing in the upper part of the daily range on volume). This replaced the old raw-volume rule: it backtested at 73.9% hit vs 66.7% for volume-vs-median, and it was the only volume measure that held up out-of-sample.">' + v.toFixed(2) + '</span>';
+}
+
 const INTRADAY_BREAKOUT_COLS = [
-  ['sym','Ticker'], ['price','Price'], ['daily','Day %'], ['volRatio','Vol vs 20d Median'],
+  ['sym','Ticker'], ['price','Price'], ['daily','Day %'], ['cmf','CMF(20)'], ['volRatio','Vol vs 20d Median'],
   ['moveVsAtr','Move vs Typical Day'], ['offHighToday','Off Today\'s High'], ['premkt','Pre-Mkt Gap'], ['earningsFlag','Earnings'], ['newHigh','New 20D High'], ['rsi','RSI (14D)']
 ];
 const BREAKOUT_MIN_DAY_PCT = 5;      // must be up at least this much today
-const BREAKOUT_MIN_VOL_RATIO = 2;    // and trading at least this many x the 20d median volume
+const BREAKOUT_MIN_VOL_RATIO = 2;    // display only - NO LONGER a filter (see CMF_MIN, which replaced it)
 const SESSION_OPEN_MIN = 9 * 60 + 30, SESSION_CLOSE_MIN = 16 * 60, SESSION_LEN_MIN = SESSION_CLOSE_MIN - SESSION_OPEN_MIN;
 // Linear pace-extrapolation (volume-so-far / fraction-of-session-elapsed)
 // is wildly unstable in the first few minutes after the open: at minute 1,
@@ -1451,9 +1361,10 @@ function renderIntradayBreakout(stocks) {
     const atrPct = (d.atr != null && d.price) ? d.atr / d.price * 100 : null;
     const moveVsAtr = (atrPct && atrPct > 0 && dayPct != null) ? Math.abs(dayPct) / atrPct : null;
 
-    if (dayPct != null && dayPct >= BREAKOUT_MIN_DAY_PCT && volRatio >= BREAKOUT_MIN_VOL_RATIO) {
+    const cmf = computeCMF(t);
+    if (dayPct != null && dayPct >= BREAKOUT_MIN_DAY_PCT && cmf != null && cmf > CMF_MIN) {
       const f = fund[t] || {};
-      candidates.push({ sym: t, price: d.price, daily: dayPct, volRatio: volRatio, offHighToday: offHighToday, moveVsAtr: moveVsAtr,
+      candidates.push({ sym: t, price: d.price, daily: dayPct, cmf: cmf, volRatio: volRatio, offHighToday: offHighToday, moveVsAtr: moveVsAtr,
                          premkt: f.premarketGapPct, earningsFlag: f.earningsFlag, newHigh: newHigh, rsi: d.rsi });
     }
   }
@@ -1490,7 +1401,8 @@ function renderIntradayBreakout(stocks) {
     return '<tr><td><a class="tklink" href="' + rallyLink(c.sym) + '" target="_blank" rel="noopener noreferrer">' + c.sym + '</a></td>' +
       '<td>' + fmtPrice(c.price) + '</td>' +
       '<td>' + pctHtml(c.daily, {sign:true, dp:1}) + '</td>' +
-      '<td><span style="font-weight:700;color:#0a9e5c">' + c.volRatio.toFixed(1) + 'x</span></td>' +
+      '<td>' + cmfBadge(c.cmf) + '</td>' +
+      '<td><span style="font-weight:700;color:#6b7280">' + c.volRatio.toFixed(1) + 'x</span></td>' +
       '<td>' + moveVsAtrHtml + '</td>' +
       '<td>' + offHighHtml + '</td>' +
       '<td>' + premarketBadge(c.premkt, null) + '</td>' +
@@ -1499,7 +1411,7 @@ function renderIntradayBreakout(stocks) {
                  '<span style="color:#6b7280">—</span>') + '</td>' +
       '<td>' + (c.newHigh ? '<span style="color:#0a9e5c;font-weight:700">Yes</span>' : '<span style="color:#6b7280">no</span>') + '</td>' +
       '<td>' + rsiBadge(c.rsi) + '</td></tr>';
-  }).join('') : '<tr><td colspan="10" class="empty">No stocks currently meet both the ' + BREAKOUT_MIN_DAY_PCT + '%+ move and ' + BREAKOUT_MIN_VOL_RATIO + 'x+ volume conditions.</td></tr>';
+  }).join('') : '<tr><td colspan="11" class="empty">No stocks currently meet both the ' + BREAKOUT_MIN_DAY_PCT + '%+ move and the CMF(20) > ' + CMF_MIN + ' buying-pressure condition.</td></tr>';
 }
 function setIntradayBreakoutSort(col) {
   if (intradayBreakoutSortCol === col) intradayBreakoutSortDir = -intradayBreakoutSortDir; else { intradayBreakoutSortCol = col; intradayBreakoutSortDir = col === 'sym' ? 1 : -1; }
@@ -1508,11 +1420,11 @@ function setIntradayBreakoutSort(col) {
 
 const BULL_FLAG_COLS = [
   ['sym','Ticker'], ['price','Price'], ['daily','Day %'], ['offHigh','Off 20D High'],
-  ['sellVolRatio','Selling Vol vs Normal'], ['rsi','RSI (14D)'], ['wrsi','Weekly RSI']
+  ['cmf','CMF(20)'], ['sellVolRatio','Selling Vol vs Normal'], ['rsi','RSI (14D)'], ['wrsi','Weekly RSI']
 ];
 const BULL_FLAG_MIN_PULLBACK = 3;    // % off the 20-day high, lower bound
 const BULL_FLAG_MAX_PULLBACK = 14;   // % off the 20-day high, upper bound
-const BULL_FLAG_MAX_VOL_RATIO = 0.85; // recent down-day avg volume must be under this fraction of the prior down-day avg
+const BULL_FLAG_MAX_VOL_RATIO = 0.85; // display only - NO LONGER a filter (see CMF_MIN, which replaced it)
 const BULL_FLAG_RSI_MIN = 40, BULL_FLAG_RSI_MAX = 60;
 
 // Daily bars don't carry true buy/sell tick data, so "selling volume" is
@@ -1560,11 +1472,12 @@ function renderBullFlag(stocks) {
     const baselineDownVol = avgDownDayVolume(closes, vols, n - 25, n - 5); // prior 20 sessions
     if (baselineDownVol == null) continue; // no down days at all in the baseline window - nothing to compare against
     const sellVolRatio = recentDownVol == null ? 0 : recentDownVol / baselineDownVol; // null recentDownVol = no down days recently = selling has fully dried up
-    if (sellVolRatio >= BULL_FLAG_MAX_VOL_RATIO) continue;
+    const cmf = computeCMF(t);
+    if (cmf == null || cmf <= CMF_MIN) continue;
 
     if (d.rsi == null || d.rsi < BULL_FLAG_RSI_MIN || d.rsi > BULL_FLAG_RSI_MAX) continue;
 
-    candidates.push({ sym: t, price: d.price, daily: d.daily, offHigh: offHigh, sellVolRatio: sellVolRatio, rsi: d.rsi, wrsi: d.weeklyRsi });
+    candidates.push({ sym: t, price: d.price, daily: d.daily, offHigh: offHigh, cmf: cmf, sellVolRatio: sellVolRatio, rsi: d.rsi, wrsi: d.weeklyRsi });
   }
 
   candidates.sort((a, b) => {
@@ -1586,10 +1499,11 @@ function renderBullFlag(stocks) {
     '<td>' + fmtPrice(c.price) + '</td>' +
     '<td>' + pctHtml(c.daily, {sign:true, dp:1}) + '</td>' +
     '<td><span style="font-weight:700;color:#374151">-' + c.offHigh.toFixed(1) + '%</span></td>' +
-    '<td><span style="font-weight:700;color:#374151">' + c.sellVolRatio.toFixed(2) + 'x</span></td>' +
+    '<td>' + cmfBadge(c.cmf) + '</td>' +
+    '<td><span style="font-weight:700;color:#6b7280">' + c.sellVolRatio.toFixed(2) + 'x</span></td>' +
     '<td>' + rsiBadge(c.rsi) + '</td>' +
     '<td>' + rsiBadge(c.wrsi) + '</td></tr>'
-  ).join('') : '<tr><td colspan="7" class="empty">No stocks currently meet all four bull flag conditions.</td></tr>';
+  ).join('') : '<tr><td colspan="8" class="empty">No stocks currently meet all four bull flag conditions.</td></tr>';
 }
 function setBullFlagSort(col) {
   if (bullFlagSortCol === col) bullFlagSortDir = -bullFlagSortDir; else { bullFlagSortCol = col; bullFlagSortDir = col === 'sym' ? 1 : -1; }
@@ -1651,6 +1565,73 @@ function renderCrossTable(stocks, kind, theadId, bodyId, captionId, sortCol, sor
       '<td>' + targetHtml(row.sym, fund[row.sym], row.price) + '</td>' +
       '<td>' + rsiBadge(row.wrsi) + '</td></tr>';
   }).join('') : '<tr><td colspan="8" class="empty">No stocks currently in the ' + label + ' cross zone (no MA50/MA200 cross in the last ' + CROSS_LOOKBACK + ' sessions, none approaching within ' + CROSS_APPROACH_GAP + '%).</td></tr>';
+}
+
+
+// ---- RS Leaders (relative strength divergence vs QQQ) ----
+// Backtested: 77.9% of signals reached entry + 1.5*ATR14 within 20 sessions
+// (n=95 deduped, Jan-Aug). NO STOP is modelled - see panel caption for the tail.
+const RS_LOOKBACK = 63;      // ~3 months
+const RS_TARGET_ATR = 1.5;   // target multiple, empirically sized
+function computeRSDivergence(sym) {
+  const d = data[sym], q = data['QQQ'];
+  if (!d || d.error || !q || q.error) return null;
+  if (!d.closes || !d.times || !q.closes || !q.times) return null;
+  if (d.closes.length < RS_LOOKBACK || d.atr == null) return null;
+  const qMap = new Map();
+  for (let i = 0; i < q.times.length; i++) qMap.set(q.times[i], q.closes[i]);
+  const rs = [], px = [];
+  for (let i = d.closes.length - RS_LOOKBACK; i < d.closes.length; i++) {
+    const qc = qMap.get(d.times[i]);
+    if (qc == null || qc === 0) continue;
+    rs.push(d.closes[i] / qc); px.push(d.closes[i]);
+  }
+  if (rs.length < 55) return null;
+  const rsNow = rs[rs.length - 1], pxNow = px[px.length - 1];
+  const rsMax = Math.max(...rs), pxMax = Math.max(...px);
+  if (rsNow < rsMax) return null;             // RS must be at a new 63d high
+  if (pxNow >= pxMax) return null;            // price must NOT be - that is the divergence
+  const target = pxNow + RS_TARGET_ATR * d.atr;
+  return { sym: sym, price: pxNow, atr: d.atr, target: target,
+           upside: (target / pxNow - 1) * 100,
+           offHigh: (pxMax - pxNow) / pxMax * 100,
+           rsGap: (rsNow / (rs.slice(0, -1).length ? Math.max(...rs.slice(0, -1)) : rsNow) - 1) * 100,
+           rsi: d.rsi, earnings: fund[sym] ? fund[sym].nextEarnings : null };
+}
+let rsDivSortCol = 'upside', rsDivSortDir = -1;
+function setRSDivSort(col) {
+  if (rsDivSortCol === col) rsDivSortDir = -rsDivSortDir;
+  else { rsDivSortCol = col; rsDivSortDir = col === 'sym' ? 1 : -1; }
+  render();
+}
+function renderRSDivergence(stocks) {
+  const cols = [['sym','Ticker'],['price','Price'],['target','Target (1.5 ATR)'],['upside','Upside %'],
+                ['offHigh','Off 63d high'],['atr','ATR14'],['rsi','RSI'],['earnings','Next earnings']];
+  const head = document.getElementById('rsDivTheadRow');
+  const body = document.getElementById('rsDivBody');
+  if (!head || !body) return;
+  head.innerHTML = cols.map(c =>
+    '<th style="cursor:pointer" onclick="setRSDivSort(\'' + c[0] + '\')">' + c[1] +
+    (rsDivSortCol === c[0] ? (rsDivSortDir === 1 ? ' ▲' : ' ▼') : '') + '</th>').join('');
+  let rows = stocks.map(computeRSDivergence).filter(Boolean);
+  rows.sort((a, b) => {
+    const x = a[rsDivSortCol], y = b[rsDivSortCol];
+    if (x == null) return 1; if (y == null) return -1;
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * rsDivSortDir;
+  });
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="' + cols.length + '" class="empty">No RS divergence today. An empty list is expected — the signal fired about 95 times across 101 tickers in 8 months.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(r =>
+    '<tr><td><strong>' + esc(r.sym) + '</strong></td>' +
+    '<td>' + r.price.toFixed(2) + '</td>' +
+    '<td style="font-weight:700">' + r.target.toFixed(2) + '</td>' +
+    '<td style="color:#0a9e5c;font-weight:700">+' + r.upside.toFixed(1) + '%</td>' +
+    '<td>' + r.offHigh.toFixed(1) + '%</td>' +
+    '<td>' + r.atr.toFixed(2) + '</td>' +
+    '<td>' + (r.rsi != null ? r.rsi.toFixed(0) : '—') + '</td>' +
+    '<td>' + (r.earnings ? esc(r.earnings) : '—') + '</td></tr>').join('');
 }
 
 function renderGoldenCross(stocks) {
